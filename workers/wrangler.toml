@@ -7,8 +7,8 @@ ENVIRONMENT = "production"
 
 [[kv_namespaces]]
 binding = "KV"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_KV_PREVIEW_ID"
+id = "943a26afb8fd4103992f92c2920f21dc"
+preview_id = "25fe0387c51a4c04a2abc74e1d3e241c"
 
 [triggers]
 crons = ["* * * * *"]

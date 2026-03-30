@@ -33,6 +33,11 @@ self.addEventListener('activate', (event) => {
 
 // フェッチ時にキャッシュを利用（Network First戦略）
 self.addEventListener('fetch', (event) => {
+  // http/https 以外のスキーム（chrome-extension:// 等）はスキップ
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
   // API リクエストはネットワーク優先
   if (event.request.url.includes('/api/')) {
     event.respondWith(
