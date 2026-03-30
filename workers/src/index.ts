@@ -12,7 +12,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 // CORS設定
 app.use('/api/*', cors({
-  origin: ['http://localhost:5173', 'https://medicine-reminder.pages.dev'],
+  origin: ['http://localhost:5173', 'https://my-medicine-reminder.pages.dev'],
   credentials: true
 }));
 
