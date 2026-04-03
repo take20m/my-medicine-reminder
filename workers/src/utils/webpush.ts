@@ -27,30 +27,52 @@ function base64UrlDecode(str: string): Uint8Array {
   return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
 
-// VAPID JWTを生成（簡易実装）
+// VAPID JWTを生成（ES256署名）
 async function createVapidAuthHeader(
   endpoint: string,
   subject: string,
-  publicKey: string
+  publicKey: string,
+  privateKey: string
 ): Promise<string> {
   const url = new URL(endpoint);
   const audience = `${url.protocol}//${url.host}`;
   const expiration = Math.floor(Date.now() / 1000) + 12 * 60 * 60;
 
-  // ヘッダー
   const header = { typ: 'JWT', alg: 'ES256' };
   const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
 
-  // ペイロード
   const payload = { aud: audience, exp: expiration, sub: subject };
   const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
 
-  // 署名
-  // Note: 本格的な実装には秘密鍵での署名が必要
-  // Cloudflare Workersでの完全な実装は複雑なため、
-  // ここでは署名なしのプレースホルダーを使用
-  const signatureB64 = base64UrlEncode(new Uint8Array(64));
+  const signingInput = `${headerB64}.${payloadB64}`;
 
+  // PKCS8形式に変換してインポート（P-256 raw秘密鍵用）
+  const keyBytes = base64UrlDecode(privateKey);
+  const pkcs8Header = new Uint8Array([
+    0x30, 0x41, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07,
+    0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08,
+    0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x04,
+    0x27, 0x30, 0x25, 0x02, 0x01, 0x01, 0x04, 0x20
+  ]);
+  const pkcs8Key = concatUint8Arrays([pkcs8Header, keyBytes]);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    pkcs8Key,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+
+  const derSignature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: { name: 'SHA-256' } },
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  );
+
+  // DER形式からraw R||S形式（各32バイト、計64バイト）に変換
+  const signature = derToRaw(new Uint8Array(derSignature));
+  const signatureB64 = base64UrlEncode(signature);
   const jwt = `${headerB64}.${payloadB64}.${signatureB64}`;
 
   return `vapid t=${jwt}, k=${publicKey}`;
@@ -66,6 +88,30 @@ function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
     offset += arr.length;
   }
   return result;
+}
+
+// ECDSA DER署名をraw R||S形式（64バイト）に変換
+function derToRaw(der: Uint8Array): Uint8Array {
+  // DER: 0x30 <len> 0x02 <r_len> <r> 0x02 <s_len> <s>
+  const raw = new Uint8Array(64);
+  let offset = 2; // skip 0x30 + total length
+
+  // R
+  offset += 1; // skip 0x02
+  const rLen = der[offset++];
+  const rStart = rLen > 32 ? offset + (rLen - 32) : offset;
+  const rDest = rLen < 32 ? 32 - rLen : 0;
+  raw.set(der.slice(rStart, offset + rLen), rDest);
+  offset += rLen;
+
+  // S
+  offset += 1; // skip 0x02
+  const sLen = der[offset++];
+  const sStart = sLen > 32 ? offset + (sLen - 32) : offset;
+  const sDest = sLen < 32 ? 32 + (32 - sLen) : 32;
+  raw.set(der.slice(sStart, offset + sLen), sDest);
+
+  return raw;
 }
 
 // aes128gcm暗号化用のキー導出
@@ -180,10 +226,10 @@ async function encryptPayload(
     salt
   );
 
-  // パディングを追加（先頭に0x02とパディング長）
+  // パディングを追加（RFC 8188: payload + 0x02 for final record）
   const paddedPayload = concatUint8Arrays([
-    new Uint8Array([2, 0]), // padding delimiter + 0 padding
-    payload
+    payload,
+    new Uint8Array([2]) // final record delimiter
   ]);
 
   // 暗号化
@@ -236,7 +282,8 @@ export async function sendPushNotification(
     const authHeader = await createVapidAuthHeader(
       subscription.endpoint,
       env.VAPID_SUBJECT,
-      env.VAPID_PUBLIC_KEY
+      env.VAPID_PUBLIC_KEY,
+      env.VAPID_PRIVATE_KEY
     );
 
     // Push送信
