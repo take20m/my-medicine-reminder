@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#4A90A4"/>
+
+  <!-- Large capsule pill -->
+  <g transform="translate(240, 235) rotate(-40)">
+    <!-- White half (left) -->
+    <rect x="-130" y="-48" width="130" height="96" fill="#ffffff"/>
+    <circle cx="-130" cy="0" r="48" fill="#ffffff"/>
+    <!-- Colored half (right) - lighter teal -->
+    <rect x="0" y="-48" width="130" height="96" fill="#7BBAC9"/>
+    <circle cx="130" cy="0" r="48" fill="#7BBAC9"/>
+    <!-- Subtle highlight on white half -->
+    <ellipse cx="-90" cy="-20" rx="50" ry="12" fill="#ffffff" opacity="0.5"/>
+    <!-- Subtle highlight on colored half -->
+    <ellipse cx="70" cy="-20" rx="50" ry="12" fill="#9AD0DC" opacity="0.6"/>
+    <!-- Center divider -->
+    <line x1="0" y1="-48" x2="0" y2="48" stroke="#3a7a8e" stroke-width="3" opacity="0.4"/>
+  </g>
+
+  <!-- Clock at bottom-right -->
+  <g transform="translate(370, 370) scale(1.2)">
+    <!-- Clock face -->
+    <circle cx="0" cy="0" r="56" fill="#ffffff"/>
+    <circle cx="0" cy="0" r="50" fill="#ffffff" stroke="#3a7a8e" stroke-width="3"/>
+
+    <!-- Hour marks (12, 3, 6, 9 only for clarity at small sizes) -->
+    <line x1="0" y1="-42" x2="0" y2="-35" stroke="#3a7a8e" stroke-width="3" stroke-linecap="round"/>
+    <line x1="42" y1="0" x2="35" y2="0" stroke="#3a7a8e" stroke-width="3" stroke-linecap="round"/>
+    <line x1="0" y1="42" x2="0" y2="35" stroke="#3a7a8e" stroke-width="3" stroke-linecap="round"/>
+    <line x1="-42" y1="0" x2="-35" y2="0" stroke="#3a7a8e" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Minor marks -->
+    <line x1="21" y1="-36" x2="18" y2="-31" stroke="#3a7a8e" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="36" y1="-21" x2="31" y2="-18" stroke="#3a7a8e" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="36" y1="21" x2="31" y2="18" stroke="#3a7a8e" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="21" y1="36" x2="18" y2="31" stroke="#3a7a8e" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-21" y1="36" x2="-18" y2="31" stroke="#3a7a8e" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-36" y1="21" x2="-31" y2="18" stroke="#3a7a8e" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-36" y1="-21" x2="-31" y2="-18" stroke="#3a7a8e" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-21" y1="-36" x2="-18" y2="-31" stroke="#3a7a8e" stroke-width="1.5" stroke-linecap="round"/>
+
+    <!-- Hour hand (pointing to ~10) -->
+    <line x1="0" y1="3" x2="-16" y2="-24" stroke="#3a7a8e" stroke-width="4" stroke-linecap="round"/>
+    <!-- Minute hand (pointing to ~2) -->
+    <line x1="0" y1="3" x2="22" y2="-28" stroke="#3a7a8e" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="3.5" fill="#3a7a8e"/>
+  </g>
+</svg>
