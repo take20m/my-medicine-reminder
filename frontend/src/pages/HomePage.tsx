@@ -153,7 +153,8 @@ export function HomePage() {
         gap: 'var(--spacing-xs)',
         marginBottom: 'var(--spacing-md)',
         overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch'
+        WebkitOverflowScrolling: 'touch',
+        padding: '6px 2px 2px'
       }}>
         {TIMING_ORDER.map(timing => {
           const medsForTiming = getMedicationsForTiming(timing);
