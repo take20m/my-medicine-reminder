@@ -166,10 +166,3 @@ export async function sendTestNotification(): Promise<ApiResponse<void>> {
     method: 'POST'
   });
 }
-
-// デバッグ: ペイロードなしテスト通知
-export async function sendRawTestNotification(): Promise<ApiResponse<any>> {
-  return fetchWithAuth<any>('/push/test-raw', {
-    method: 'POST'
-  });
-}

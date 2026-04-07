@@ -233,44 +233,12 @@ async function encryptPayload(
   return { body, serverPublicKey };
 }
 
-// ペイロードなしでPush送信（デバッグ用）
-export async function sendRawPush(
-  env: Env,
-  subscription: PushSubscriptionData
-): Promise<{ success: boolean; status: number; body: string }> {
-  const authHeader = await createVapidAuthHeader(
-    subscription.endpoint,
-    env.VAPID_SUBJECT,
-    env.VAPID_PUBLIC_KEY,
-    env.VAPID_PRIVATE_KEY
-  );
-
-  const response = await fetch(subscription.endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-      'TTL': '60',
-      'Urgency': 'high',
-      'Content-Length': '0'
-    }
-  });
-
-  const responseText = await response.text();
-  console.log('Raw push response:', response.status, responseText);
-
-  if (!response.ok) {
-    throw new Error(`Raw push failed: ${response.status} ${responseText}`);
-  }
-
-  return { success: true, status: response.status, body: responseText };
-}
-
 // WebPush通知を送信
 export async function sendPushNotification(
   env: Env,
   subscription: PushSubscriptionData,
   payload: PushPayload
-): Promise<{ success: boolean; status: number; body: string }> {
+): Promise<{ success: boolean }> {
   try {
     // クライアントの公開鍵とauth secretをデコード
     const clientPublicKey = base64UrlDecode(subscription.keys.p256dh);
@@ -305,19 +273,18 @@ export async function sendPushNotification(
       body
     });
 
-    const responseText = await response.text();
-    console.log('Push service response:', response.status, responseText);
-
     if (!response.ok) {
-      // 410 Gone or 404 = 購読が無効
+      const errorText = await response.text();
+      console.error('Push notification failed:', response.status, errorText);
+
       if (response.status === 410 || response.status === 404) {
-        return { success: false, status: response.status, body: responseText };
+        return { success: false };
       }
 
-      throw new Error(`Push failed: ${response.status} ${responseText}`);
+      throw new Error(`Push failed: ${response.status} ${errorText}`);
     }
 
-    return { success: true, status: response.status, body: responseText };
+    return { success: true };
   } catch (error) {
     console.error('sendPushNotification error:', error);
     throw error;
