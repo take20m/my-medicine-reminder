@@ -174,4 +174,4 @@ medicine-reminder/
 
 ## ライセンス
 
-MIT
+このプロジェクトは [MIT License](./LICENSE) の下で公開されています。
