@@ -173,6 +173,16 @@ export async function getAllSubscriptions(
   return result;
 }
 
+// スケジュールキャッシュ: 全ユーザーの通知時刻一覧
+export async function getScheduleTimings(kv: KVNamespace): Promise<string[] | null> {
+  const data = await kv.get('schedule:timings');
+  return data ? JSON.parse(data) : null;
+}
+
+export async function saveScheduleTimings(kv: KVNamespace, timings: string[]): Promise<void> {
+  await kv.put('schedule:timings', JSON.stringify(timings));
+}
+
 // 全ユーザー情報を取得（通知処理用）
 export async function getAllUsers(kv: KVNamespace): Promise<User[]> {
   const list = await kv.list({ prefix: 'users:' });

@@ -1,10 +1,10 @@
 import type { Env, TimingType, User, Medication } from '../types';
 import {
   getAllUsers,
-  getAllSubscriptions,
+  getPushSubscription,
   getMedications,
   getDailyRecord,
-  getUser
+  getScheduleTimings
 } from '../utils/kv';
 import { sendPushNotification } from '../utils/webpush';
 import { TIMING_LABELS } from '../types';
@@ -67,7 +67,7 @@ async function sendReminderToUser(
   timing: TimingType,
   medications: Medication[]
 ): Promise<void> {
-  const subscription = await (await getAllSubscriptions(env.KV)).find(s => s.uid === user.uid);
+  const subscription = await getPushSubscription(env.KV, user.uid);
 
   if (!subscription) {
     console.log(`No subscription for user ${user.uid}`);
@@ -80,7 +80,7 @@ async function sendReminderToUser(
   try {
     await sendPushNotification(
       env,
-      subscription.subscription,
+      subscription,
       {
         title: `${timingLabel}のお薬の時間です`,
         body: `${medicationNames}を服用してください`,
@@ -99,6 +99,16 @@ async function sendReminderToUser(
   }
 }
 
+// cron間隔（分）。wrangler.toml の crons = ["*/5 * * * *"] と一致させる
+const CRON_INTERVAL = 5;
+
+// 指定時刻が現在の cron ウィンドウ内にあるかチェック
+// 例: currentMinutes=425, CRON_INTERVAL=5 → 421〜425 の範囲にあればtrue
+function isInCurrentWindow(targetMinutes: number, currentMinutes: number): boolean {
+  const windowStart = currentMinutes - CRON_INTERVAL + 1;
+  return targetMinutes >= windowStart && targetMinutes <= currentMinutes;
+}
+
 // スケジュール処理のメインハンドラー
 export async function handleScheduled(env: Env): Promise<void> {
   const japanTime = getJapanTime();
@@ -107,41 +117,57 @@ export async function handleScheduled(env: Env): Promise<void> {
 
   console.log(`Running scheduler at ${japanTime.toISOString()}, minutes: ${currentMinutes}`);
 
-  // 全ユーザーを取得
+  // 早期リターン: スケジュールキャッシュを1 GETで読み、
+  // 現在のウィンドウ内に通知時刻がなければ即終了
+  const cachedTimings = await getScheduleTimings(env.KV);
+  if (cachedTimings) {
+    const hasRelevantTiming = cachedTimings.some(timeStr => {
+      const targetMinutes = timeToMinutes(timeStr);
+      // 初回通知のウィンドウチェック
+      if (isInCurrentWindow(targetMinutes, currentMinutes)) return true;
+      // 再通知: 設定時刻から60分以内かチェック（詳細はユーザーごとに判定）
+      const diff = currentMinutes - targetMinutes;
+      return diff > 0 && diff <= 60;
+    });
+
+    if (!hasRelevantTiming) {
+      console.log('No relevant timings in current window, skipping');
+      return;
+    }
+  }
+
+  // 該当タイミングあり → 全ユーザーを取得して処理
   const users = await getAllUsers(env.KV);
 
   for (const user of users) {
     const settings = user.settings;
 
-    // 各タイミングをチェック
     for (const [timing, timeStr] of Object.entries(settings.timings)) {
       const targetMinutes = timeToMinutes(timeStr);
       const reminderInterval = settings.reminderInterval;
-
-      // 通知タイミングかどうかチェック
-      // - 設定時刻ちょうど
-      // - または再通知間隔の倍数（設定時刻から reminderInterval 分後、2*reminderInterval 分後...）
       const diffMinutes = currentMinutes - targetMinutes;
 
-      if (diffMinutes < 0) {
-        // まだ時刻になっていない
+      if (diffMinutes < 0 || diffMinutes > 60) {
         continue;
       }
 
-      if (diffMinutes > 60) {
-        // 1時間以上経過した場合はスキップ
-        continue;
+      // 初回通知: 設定時刻が現在のcronウィンドウ内にあるか
+      const isInitialNotification = isInCurrentWindow(targetMinutes, currentMinutes);
+      // 再通知: reminderInterval の倍数がウィンドウ内にあるか
+      let isReminderNotification = false;
+      if (diffMinutes > 0) {
+        for (let d = diffMinutes - CRON_INTERVAL + 1; d <= diffMinutes; d++) {
+          if (d > 0 && d % reminderInterval === 0) {
+            isReminderNotification = true;
+            break;
+          }
+        }
       }
-
-      // 初回通知 or 再通知タイミングかチェック
-      const isInitialNotification = diffMinutes === 0;
-      const isReminderNotification = diffMinutes > 0 && diffMinutes % reminderInterval === 0;
 
       if (!isInitialNotification && !isReminderNotification) {
         continue;
       }
 
-      // 未服用の薬があるかチェック
       const unrecordedMeds = await hasUnrecordedMedications(
         env.KV,
         user.uid,
@@ -150,11 +176,9 @@ export async function handleScheduled(env: Env): Promise<void> {
       );
 
       if (unrecordedMeds.length === 0) {
-        // 全て服用済み
         continue;
       }
 
-      // 通知を送信
       await sendReminderToUser(env, user, timing as TimingType, unrecordedMeds);
     }
   }

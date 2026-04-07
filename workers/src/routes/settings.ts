@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env, UserSettings } from '../types';
 import { authMiddleware } from '../utils/auth';
-import { getUser, updateUserSettings } from '../utils/kv';
+import { getUser, updateUserSettings, getAllUsers, saveScheduleTimings } from '../utils/kv';
 
 export const settingsRoutes = new Hono<{ Bindings: Env; Variables: { uid: string } }>();
 
@@ -46,6 +46,16 @@ settingsRoutes.put('/', async (c) => {
   if (!user) {
     return c.json({ success: false, error: 'User not found' }, 404);
   }
+
+  // スケジュールキャッシュを再構築
+  const allUsers = await getAllUsers(c.env.KV);
+  const allTimings = new Set<string>();
+  for (const u of allUsers) {
+    for (const time of Object.values(u.settings.timings)) {
+      allTimings.add(time);
+    }
+  }
+  await saveScheduleTimings(c.env.KV, [...allTimings].sort());
 
   return c.json({ success: true, data: user.settings });
 });

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { verifyFirebaseToken } from '../utils/auth';
-import { getUser, createUser } from '../utils/kv';
+import { getUser, createUser, getAllUsers, saveScheduleTimings } from '../utils/kv';
 
 export const authRoutes = new Hono<{ Bindings: Env }>();
 
@@ -24,6 +24,16 @@ authRoutes.post('/verify', async (c) => {
     if (!user) {
       const displayName = payload.firebase?.identities?.['google.com']?.[0] || payload.email || 'User';
       user = await createUser(c.env.KV, uid, displayName, payload.email || '');
+
+      // スケジュールキャッシュを再構築
+      const allUsers = await getAllUsers(c.env.KV);
+      const allTimings = new Set<string>();
+      for (const u of allUsers) {
+        for (const time of Object.values(u.settings.timings)) {
+          allTimings.add(time);
+        }
+      }
+      await saveScheduleTimings(c.env.KV, [...allTimings].sort());
     }
 
     return c.json({
