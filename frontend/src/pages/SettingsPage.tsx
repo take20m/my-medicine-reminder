@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useAuth } from '../hooks/useAuth';
-import { getSettings, updateSettings, getVapidKey, subscribePush, unsubscribePush, sendTestNotification } from '../services/api';
+import { getSettings, updateSettings, getVapidKey, subscribePush, unsubscribePush, sendTestNotification, sendRawTestNotification } from '../services/api';
 import type { UserSettings, TimingType } from '../types';
 import { TIMING_LABELS, TIMING_ORDER } from '../types';
 
@@ -314,17 +314,33 @@ export function SettingsPage() {
           </button>
         </div>
         {pushEnabled && (
-          <button
-            onClick={handleTestNotification}
-            disabled={testSending}
-            class="btn btn-outline btn-block"
-          >
-            {testSending ? (
-              <div class="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
-            ) : (
-              'テスト通知を送信'
-            )}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+            <button
+              onClick={handleTestNotification}
+              disabled={testSending}
+              class="btn btn-outline btn-block"
+            >
+              {testSending ? (
+                <div class="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+              ) : (
+                'テスト通知を送信'
+              )}
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const result = await sendRawTestNotification();
+                  setMessage({ type: 'success', text: `Raw Push: ${JSON.stringify(result)}` });
+                } catch (e) {
+                  setMessage({ type: 'error', text: `Raw Push失敗: ${e}` });
+                }
+              }}
+              class="btn btn-outline btn-block"
+              style={{ fontSize: 'var(--font-size-sm)' }}
+            >
+              デバッグ: ペイロードなし通知
+            </button>
+          </div>
         )}
       </div>
 

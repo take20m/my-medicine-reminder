@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Env, PushSubscriptionData } from '../types';
 import { authMiddleware } from '../utils/auth';
 import { getPushSubscription, savePushSubscription, deletePushSubscription, getUser } from '../utils/kv';
-import { sendPushNotification } from '../utils/webpush';
+import { sendPushNotification, sendRawPush } from '../utils/webpush';
 
 export const pushRoutes = new Hono<{ Bindings: Env; Variables: { uid: string } }>();
 
@@ -65,7 +65,7 @@ pushRoutes.post('/test', async (c) => {
   const user = await getUser(c.env.KV, uid);
 
   try {
-    await sendPushNotification(
+    const result = await sendPushNotification(
       c.env,
       subscription,
       {
@@ -79,9 +79,34 @@ pushRoutes.post('/test', async (c) => {
       }
     );
 
-    return c.json({ success: true });
+    return c.json({
+      success: result.success,
+      data: { pushServiceStatus: result.status, pushServiceResponse: result.body }
+    });
   } catch (error) {
     console.error('Push notification error:', error);
-    return c.json({ success: false, error: 'Failed to send notification' }, 500);
+    const message = error instanceof Error ? error.message : 'Failed to send notification';
+    return c.json({ success: false, error: message }, 500);
+  }
+});
+
+// デバッグ: ペイロードなしでプッシュ送信（暗号化の切り分け用）
+pushRoutes.post('/test-raw', async (c) => {
+  const uid = c.get('uid');
+
+  const subscription = await getPushSubscription(c.env.KV, uid);
+  if (!subscription) {
+    return c.json({ success: false, error: 'No subscription found' }, 404);
+  }
+
+  try {
+    const result = await sendRawPush(c.env, subscription);
+    return c.json({
+      success: result.success,
+      data: { pushServiceStatus: result.status, pushServiceResponse: result.body }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to send';
+    return c.json({ success: false, error: message }, 500);
   }
 });

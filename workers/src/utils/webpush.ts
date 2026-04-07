@@ -64,15 +64,13 @@ async function createVapidAuthHeader(
     ['sign']
   );
 
-  const derSignature = await crypto.subtle.sign(
+  const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: { name: 'SHA-256' } },
     cryptoKey,
     new TextEncoder().encode(signingInput)
   );
 
-  // DER形式からraw R||S形式（各32バイト、計64バイト）に変換
-  const signature = derToRaw(new Uint8Array(derSignature));
-  const signatureB64 = base64UrlEncode(signature);
+  const signatureB64 = base64UrlEncode(new Uint8Array(signature));
   const jwt = `${headerB64}.${payloadB64}.${signatureB64}`;
 
   return `vapid t=${jwt}, k=${publicKey}`;
@@ -88,30 +86,6 @@ function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
     offset += arr.length;
   }
   return result;
-}
-
-// ECDSA DER署名をraw R||S形式（64バイト）に変換
-function derToRaw(der: Uint8Array): Uint8Array {
-  // DER: 0x30 <len> 0x02 <r_len> <r> 0x02 <s_len> <s>
-  const raw = new Uint8Array(64);
-  let offset = 2; // skip 0x30 + total length
-
-  // R
-  offset += 1; // skip 0x02
-  const rLen = der[offset++];
-  const rStart = rLen > 32 ? offset + (rLen - 32) : offset;
-  const rDest = rLen < 32 ? 32 - rLen : 0;
-  raw.set(der.slice(rStart, offset + rLen), rDest);
-  offset += rLen;
-
-  // S
-  offset += 1; // skip 0x02
-  const sLen = der[offset++];
-  const sStart = sLen > 32 ? offset + (sLen - 32) : offset;
-  const sDest = sLen < 32 ? 32 + (32 - sLen) : 32;
-  raw.set(der.slice(sStart, offset + sLen), sDest);
-
-  return raw;
 }
 
 // aes128gcm暗号化用のキー導出
@@ -259,12 +233,44 @@ async function encryptPayload(
   return { body, serverPublicKey };
 }
 
+// ペイロードなしでPush送信（デバッグ用）
+export async function sendRawPush(
+  env: Env,
+  subscription: PushSubscriptionData
+): Promise<{ success: boolean; status: number; body: string }> {
+  const authHeader = await createVapidAuthHeader(
+    subscription.endpoint,
+    env.VAPID_SUBJECT,
+    env.VAPID_PUBLIC_KEY,
+    env.VAPID_PRIVATE_KEY
+  );
+
+  const response = await fetch(subscription.endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': authHeader,
+      'TTL': '60',
+      'Urgency': 'high',
+      'Content-Length': '0'
+    }
+  });
+
+  const responseText = await response.text();
+  console.log('Raw push response:', response.status, responseText);
+
+  if (!response.ok) {
+    throw new Error(`Raw push failed: ${response.status} ${responseText}`);
+  }
+
+  return { success: true, status: response.status, body: responseText };
+}
+
 // WebPush通知を送信
 export async function sendPushNotification(
   env: Env,
   subscription: PushSubscriptionData,
   payload: PushPayload
-): Promise<boolean> {
+): Promise<{ success: boolean; status: number; body: string }> {
   try {
     // クライアントの公開鍵とauth secretをデコード
     const clientPublicKey = base64UrlDecode(subscription.keys.p256dh);
@@ -299,20 +305,19 @@ export async function sendPushNotification(
       body
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Push notification failed:', response.status, errorText);
+    const responseText = await response.text();
+    console.log('Push service response:', response.status, responseText);
 
+    if (!response.ok) {
       // 410 Gone or 404 = 購読が無効
       if (response.status === 410 || response.status === 404) {
-        return false;
+        return { success: false, status: response.status, body: responseText };
       }
 
-      throw new Error(`Push failed: ${response.status} ${errorText}`);
+      throw new Error(`Push failed: ${response.status} ${responseText}`);
     }
 
-    console.log('Push notification sent successfully');
-    return true;
+    return { success: true, status: response.status, body: responseText };
   } catch (error) {
     console.error('sendPushNotification error:', error);
     throw error;
