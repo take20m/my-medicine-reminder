@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { getMedications, getDailyRecord, recordMedication } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { getTodayJstString } from '../utils/date';
+import { getJstMinutesOfDay, getTodayJstString } from '../utils/date';
 import { MedicationCard } from '../components/MedicationCard';
 import type { Medication, DailyRecord, RecordEntry, TimingType, RecordStatus } from '../types';
 import { TIMING_LABELS, TIMING_ORDER } from '../types';
@@ -9,8 +9,7 @@ import { TIMING_LABELS, TIMING_ORDER } from '../types';
 function getCurrentTiming(settings?: { timings: Record<TimingType, string> }): TimingType | null {
   if (!settings) return 'morning';
 
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentMinutes = getJstMinutesOfDay(new Date());
 
   const timings = TIMING_ORDER.map(timing => ({
     timing,
