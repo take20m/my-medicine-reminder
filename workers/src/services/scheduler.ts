@@ -1,10 +1,11 @@
 import type { Env, TimingType, User, Medication } from '../types';
 import {
-  getAllUsers,
+  getUser,
   getPushSubscription,
   getMedications,
   getDailyRecord,
   getScheduleTimings,
+  getScheduleUids,
   hasNotificationBeenSent,
   markNotificationSent
 } from '../utils/kv';
@@ -102,29 +103,38 @@ export async function handleScheduled(env: Env): Promise<void> {
 
   console.log(`Running scheduler at ${now.toISOString()} (JST ${today} ${currentMinutes} min)`);
 
-  // 早期リターン: スケジュールキャッシュを1 GETで読み、
-  // 現在のウィンドウ内に通知時刻がなければ即終了
+  // スケジュールキャッシュから現在のcronウィンドウに該当しうる時刻を抽出
   const cachedTimings = await getScheduleTimings(env.KV);
-  if (cachedTimings) {
-    const hasRelevantTiming = cachedTimings.some(timeStr => {
-      const targetMinutes = timeToMinutes(timeStr);
-      // 初回通知のウィンドウチェック
-      if (isInCurrentWindow(targetMinutes, currentMinutes)) return true;
-      // 再通知: 設定時刻から60分以内かチェック（詳細はユーザーごとに判定）
-      const diff = currentMinutes - targetMinutes;
-      return diff > 0 && diff <= 60;
-    });
-
-    if (!hasRelevantTiming) {
-      console.log('No relevant timings in current window, skipping');
-      return;
-    }
+  if (!cachedTimings || cachedTimings.length === 0) {
+    console.log('No schedule timings registered, skipping');
+    return;
   }
 
-  // 該当タイミングあり → 全ユーザーを取得して処理
-  const users = await getAllUsers(env.KV);
+  const relevantTimings = cachedTimings.filter(timeStr => {
+    const targetMinutes = timeToMinutes(timeStr);
+    if (isInCurrentWindow(targetMinutes, currentMinutes)) return true;
+    const diff = currentMinutes - targetMinutes;
+    return diff > 0 && diff <= 60;
+  });
 
-  for (const user of users) {
+  if (relevantTimings.length === 0) {
+    console.log('No relevant timings in current window, skipping');
+    return;
+  }
+
+  // 該当時刻の uid を時刻別インデックスから集約 (全ユーザー走査を回避)
+  const relevantUids = new Set<string>();
+  for (const time of relevantTimings) {
+    const uids = await getScheduleUids(env.KV, time);
+    for (const uid of uids) relevantUids.add(uid);
+  }
+
+  if (relevantUids.size === 0) return;
+
+  for (const uid of relevantUids) {
+    const user = await getUser(env.KV, uid);
+    if (!user) continue;
+
     const settings = user.settings;
 
     for (const [timing, timeStr] of Object.entries(settings.timings)) {

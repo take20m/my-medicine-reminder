@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env, DailyRecord, RecordEntry } from '../types';
 import { authMiddleware } from '../utils/auth';
-import { getDailyRecord, saveDailyRecord } from '../utils/kv';
+import { applyScheduleIndex, getDailyRecord, getUser, saveDailyRecord } from '../utils/kv';
 import { formatJstDate } from '../utils/date';
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: { uid: string } }>();
@@ -104,4 +104,19 @@ adminRoutes.post('/migrate-records-tz', async (c) => {
   } while (cursor);
 
   return c.json({ success: true, data: result });
+});
+
+// スケジュールインデックス (schedule:uids:{HH:MM}) を呼び出しユーザー分のみ再構築
+// schedule:uids:* 導入前に作られたユーザーが cron で通知されなくなる問題の移行用
+adminRoutes.post('/rebuild-schedule-index', async (c) => {
+  const uid = c.get('uid');
+  const user = await getUser(c.env.KV, uid);
+  if (!user) {
+    return c.json({ success: false, error: 'User not found' }, 404);
+  }
+
+  const times = Object.values(user.settings.timings);
+  await applyScheduleIndex(c.env.KV, uid, [], times);
+
+  return c.json({ success: true, data: { uid, times } });
 });

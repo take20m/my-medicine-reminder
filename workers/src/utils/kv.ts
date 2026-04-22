@@ -199,7 +199,7 @@ export async function markNotificationSent(
   await kv.put(key, '1', { expirationTtl: 600 });
 }
 
-// スケジュールキャッシュ: 全ユーザーの通知時刻一覧
+// スケジュールキャッシュ: 全ユーザーの通知時刻一覧 (cronの早期リターン判定用)
 export async function getScheduleTimings(kv: KVNamespace): Promise<string[] | null> {
   const data = await kv.get('schedule:timings');
   return data ? JSON.parse(data) : null;
@@ -207,6 +207,59 @@ export async function getScheduleTimings(kv: KVNamespace): Promise<string[] | nu
 
 export async function saveScheduleTimings(kv: KVNamespace, timings: string[]): Promise<void> {
   await kv.put('schedule:timings', JSON.stringify(timings));
+}
+
+// 時刻別 uid インデックス: schedule:uids:{HH:MM} → string[]
+// 該当時刻に通知が必要な uid のみを効率的に取得するためのインデックス
+export async function getScheduleUids(kv: KVNamespace, time: string): Promise<string[]> {
+  const data = await kv.get(`schedule:uids:${time}`);
+  return data ? JSON.parse(data) : [];
+}
+
+async function saveScheduleUids(kv: KVNamespace, time: string, uids: string[]): Promise<void> {
+  if (uids.length === 0) {
+    await kv.delete(`schedule:uids:${time}`);
+  } else {
+    await kv.put(`schedule:uids:${time}`, JSON.stringify(uids));
+  }
+}
+
+/**
+ * ユーザーのスケジュール時刻リストが変わった時に schedule:uids:* と schedule:timings を差分更新する
+ * - oldTimes: 変更前にユーザーが登録していた時刻一覧 (新規作成なら空配列)
+ * - newTimes: 変更後の時刻一覧 (アカウント削除なら空配列)
+ */
+export async function applyScheduleIndex(
+  kv: KVNamespace,
+  uid: string,
+  oldTimes: string[],
+  newTimes: string[]
+): Promise<void> {
+  const oldSet = new Set(oldTimes);
+  const newSet = new Set(newTimes);
+  const removed = oldTimes.filter(t => !newSet.has(t));
+  const added = newTimes.filter(t => !oldSet.has(t));
+
+  const timings = new Set(await getScheduleTimings(kv) ?? []);
+
+  for (const time of removed) {
+    const uids = await getScheduleUids(kv, time);
+    const filtered = uids.filter(u => u !== uid);
+    await saveScheduleUids(kv, time, filtered);
+    if (filtered.length === 0) timings.delete(time);
+  }
+  for (const time of added) {
+    const uids = await getScheduleUids(kv, time);
+    if (!uids.includes(uid)) {
+      uids.push(uid);
+      await saveScheduleUids(kv, time, uids);
+    }
+    timings.add(time);
+  }
+
+  if (removed.length > 0 || added.length > 0) {
+    await saveScheduleTimings(kv, [...timings].sort());
+  }
 }
 
 // 全ユーザー情報を取得（通知処理用）
