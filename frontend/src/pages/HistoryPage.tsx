@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'preact/hooks';
-import { getMedications, getRecordsInRange } from '../services/api';
-import { formatJstDate, parseJstDate } from '../utils/date';
-import type { Medication, DailyRecord } from '../types';
+import { getMedications, getRecordsInRange, recordMedication } from '../services/api';
+import { formatJstDate, getTodayJstString, parseJstDate } from '../utils/date';
+import { MedicationCard } from '../components/MedicationCard';
+import type { Medication, DailyRecord, RecordStatus, TimingType } from '../types';
 import { TIMING_LABELS, TIMING_ORDER } from '../types';
 
 function getMonthDays(year: number, month: number): Date[] {
@@ -303,20 +304,50 @@ export function HistoryPage() {
           date={selectedDate}
           record={selectedRecord}
           medications={medications}
+          onRecordUpdated={updateLocalRecord}
         />
       )}
     </div>
   );
+
+  function updateLocalRecord(updated: DailyRecord) {
+    setRecords(prev => {
+      const idx = prev.findIndex(r => r.date === updated.date);
+      if (idx >= 0) {
+        const next = prev.slice();
+        next[idx] = updated;
+        return next;
+      }
+      return [...prev, updated];
+    });
+  }
 }
 
 interface DayDetailProps {
   date: string;
   record: DailyRecord | null | undefined;
   medications: Medication[];
+  onRecordUpdated: (updated: DailyRecord) => void;
 }
 
-function DayDetail({ date, record, medications }: DayDetailProps) {
+function DayDetail({ date, record, medications, onRecordUpdated }: DayDetailProps) {
   const dateObj = parseJstDate(date);
+  const isEditable = date <= getTodayJstString();
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  async function handleRecord(medicationId: string, timing: TimingType, status: RecordStatus) {
+    setUpdating(`${medicationId}-${timing}`);
+    try {
+      const result = await recordMedication({ date, medicationId, timing, status });
+      if (result.success && result.data) {
+        onRecordUpdated(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to record:', error);
+    } finally {
+      setUpdating(null);
+    }
+  }
 
   return (
     <div class="card">
@@ -354,6 +385,19 @@ function DayDetail({ date, record, medications }: DayDetailProps) {
                   e => e.medicationId === med.id && e.timing === timing
                 );
                 const status = entry?.status || 'pending';
+
+                if (isEditable) {
+                  return (
+                    <MedicationCard
+                      key={med.id}
+                      medication={med}
+                      status={status}
+                      entry={entry}
+                      isUpdating={updating === `${med.id}-${timing}`}
+                      onRecord={(newStatus) => handleRecord(med.id, timing, newStatus)}
+                    />
+                  );
+                }
 
                 return (
                   <div
