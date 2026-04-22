@@ -116,10 +116,28 @@ export async function recordMedication(data: {
   timing: TimingType;
   status: RecordStatus;
 }): Promise<ApiResponse<DailyRecord>> {
-  return fetchWithAuth<DailyRecord>('/records', {
+  const result = await fetchWithAuth<DailyRecord>('/records', {
     method: 'POST',
     body: JSON.stringify(data)
   });
+  if (result.success) {
+    closeReminderNotifications(data.timing);
+  }
+  return result;
+}
+
+// 服用記録後、該当タイミングの残留プッシュ通知を SW に閉じさせる
+async function closeReminderNotifications(timing: TimingType): Promise<void> {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    registration.active?.postMessage({
+      type: 'CLOSE_NOTIFICATIONS',
+      tag: `reminder-${timing}`
+    });
+  } catch (error) {
+    console.warn('Failed to notify SW to close notifications:', error);
+  }
 }
 
 // 設定取得

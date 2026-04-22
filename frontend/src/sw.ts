@@ -63,6 +63,20 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// ページからの通知クローズ依頼（服用記録直後に残留通知を消す用途）
+self.addEventListener('message', (event) => {
+  const data = event.data as { type?: string; tag?: string } | undefined;
+  if (data?.type !== 'CLOSE_NOTIFICATIONS' || !data.tag) return;
+
+  event.waitUntil(
+    self.registration.getNotifications({ tag: data.tag }).then((notifications) => {
+      for (const n of notifications) {
+        n.close();
+      }
+    })
+  );
+});
+
 // 通知クリック時の処理
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
