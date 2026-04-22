@@ -1,4 +1,5 @@
 import type { Env, User, Medication, DailyRecord, PushSubscriptionData, UserSettings } from '../types';
+import { addDays } from './date';
 
 // デフォルト設定
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -116,16 +117,14 @@ export async function getRecordsInRange(
   toDate: string
 ): Promise<DailyRecord[]> {
   const records: DailyRecord[] = [];
-  const current = new Date(fromDate);
-  const end = new Date(toDate);
+  let cursor = fromDate;
 
-  while (current <= end) {
-    const dateStr = current.toISOString().split('T')[0];
-    const record = await getDailyRecord(kv, uid, dateStr);
+  while (cursor <= toDate) {
+    const record = await getDailyRecord(kv, uid, cursor);
     if (record) {
       records.push(record);
     }
-    current.setDate(current.getDate() + 1);
+    cursor = addDays(cursor, 1);
   }
 
   return records;

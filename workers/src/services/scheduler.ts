@@ -7,29 +7,13 @@ import {
   getScheduleTimings
 } from '../utils/kv';
 import { sendPushNotification } from '../utils/webpush';
+import { getJstDateTimeParts } from '../utils/date';
 import { TIMING_LABELS } from '../types';
-
-// 現在の日時を日本時間で取得
-function getJapanTime(): Date {
-  const now = new Date();
-  // UTC+9
-  return new Date(now.getTime() + 9 * 60 * 60 * 1000);
-}
 
 // 時刻文字列を分に変換
 function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
-}
-
-// 現在の時刻（分）を取得
-function getCurrentMinutes(date: Date): number {
-  return date.getUTCHours() * 60 + date.getUTCMinutes();
-}
-
-// 今日の日付文字列を取得（YYYY-MM-DD）
-function getDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
 }
 
 // 指定タイミングで未服用の薬があるかチェック
@@ -111,11 +95,10 @@ function isInCurrentWindow(targetMinutes: number, currentMinutes: number): boole
 
 // スケジュール処理のメインハンドラー
 export async function handleScheduled(env: Env): Promise<void> {
-  const japanTime = getJapanTime();
-  const currentMinutes = getCurrentMinutes(japanTime);
-  const today = getDateString(japanTime);
+  const now = new Date();
+  const { dateStr: today, totalMinutes: currentMinutes } = getJstDateTimeParts(now);
 
-  console.log(`Running scheduler at ${japanTime.toISOString()}, minutes: ${currentMinutes}`);
+  console.log(`Running scheduler at ${now.toISOString()} (JST ${today} ${currentMinutes} min)`);
 
   // 早期リターン: スケジュールキャッシュを1 GETで読み、
   // 現在のウィンドウ内に通知時刻がなければ即終了
