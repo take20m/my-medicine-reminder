@@ -4,7 +4,9 @@ import {
   getPushSubscription,
   getMedications,
   getDailyRecord,
-  getScheduleTimings
+  getScheduleTimings,
+  hasNotificationBeenSent,
+  markNotificationSent
 } from '../utils/kv';
 import { sendPushNotification } from '../utils/webpush';
 import { getJstDateTimeParts } from '../utils/date';
@@ -162,7 +164,22 @@ export async function handleScheduled(env: Env): Promise<void> {
         continue;
       }
 
+      // 冪等性: 同一 cron ウィンドウで既に送信済みならスキップ
+      // (cron リトライ、タイミング境界の重複発火を防ぐ)
+      const windowStart = currentMinutes - (currentMinutes % CRON_INTERVAL);
+      const alreadySent = await hasNotificationBeenSent(
+        env.KV,
+        user.uid,
+        today,
+        timing,
+        windowStart
+      );
+      if (alreadySent) {
+        continue;
+      }
+
       await sendReminderToUser(env, user, timing as TimingType, unrecordedMeds);
+      await markNotificationSent(env.KV, user.uid, today, timing, windowStart);
     }
   }
 }

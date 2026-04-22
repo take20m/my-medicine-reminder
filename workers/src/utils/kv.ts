@@ -172,6 +172,33 @@ export async function getAllSubscriptions(
   return result;
 }
 
+// 通知送信の冪等性フラグ
+// key: notif:{uid}:{date}:{timing}:{windowStart}
+// windowStart は cron ウィンドウ開始の分 (0,5,10,...,1435)
+export async function hasNotificationBeenSent(
+  kv: KVNamespace,
+  uid: string,
+  date: string,
+  timing: string,
+  windowStart: number
+): Promise<boolean> {
+  const key = `notif:${uid}:${date}:${timing}:${windowStart}`;
+  const data = await kv.get(key);
+  return data !== null;
+}
+
+export async function markNotificationSent(
+  kv: KVNamespace,
+  uid: string,
+  date: string,
+  timing: string,
+  windowStart: number
+): Promise<void> {
+  const key = `notif:${uid}:${date}:${timing}:${windowStart}`;
+  // ウィンドウ重複防止のための短期TTL (10分) で十分。翌日まで残す必要はない
+  await kv.put(key, '1', { expirationTtl: 600 });
+}
+
 // スケジュールキャッシュ: 全ユーザーの通知時刻一覧
 export async function getScheduleTimings(kv: KVNamespace): Promise<string[] | null> {
   const data = await kv.get('schedule:timings');
