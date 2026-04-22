@@ -75,6 +75,7 @@ export interface PendingNotification {
 // Cloudflare Workers 環境変数
 export interface Env {
   KV: KVNamespace;
+  ENVIRONMENT: string;
   FIREBASE_PROJECT_ID: string;
   VAPID_PUBLIC_KEY: string;
   VAPID_PRIVATE_KEY: string;

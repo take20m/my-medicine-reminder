@@ -11,11 +11,13 @@ import { handleScheduled } from './services/scheduler';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// CORS設定
-app.use('/api/*', cors({
-  origin: ['http://localhost:5173', 'https://my-medicine-reminder.pages.dev'],
-  credentials: true
-}));
+// CORS設定: 本番環境では localhost を許可しない
+app.use('/api/*', (c, next) => {
+  const origins = c.env.ENVIRONMENT === 'production'
+    ? ['https://my-medicine-reminder.pages.dev']
+    : ['http://localhost:5173', 'https://my-medicine-reminder.pages.dev'];
+  return cors({ origin: origins, credentials: true })(c, next);
+});
 
 // ヘルスチェック
 app.get('/api/health', (c) => c.json({ status: 'ok' }));
