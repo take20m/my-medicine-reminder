@@ -289,13 +289,13 @@ function MedicationCard({ medication, isUpdating, onRecord }: MedicationCardProp
           <button
             onClick={() => onRecord('taken')}
             disabled={isUpdating}
-            class="btn btn-success"
+            class="btn btn-outline-success"
             style={{ flex: 1 }}
           >
             {isUpdating ? (
               <div class="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
             ) : (
-              '飲んだ'
+              '飲んだと記録'
             )}
           </button>
           <button
