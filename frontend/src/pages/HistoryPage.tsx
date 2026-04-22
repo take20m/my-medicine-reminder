@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { getMedications, getRecordsInRange } from '../services/api';
+import { formatJstDate, parseJstDate } from '../utils/date';
 import type { Medication, DailyRecord } from '../types';
 import { TIMING_LABELS, TIMING_ORDER } from '../types';
 
@@ -31,10 +32,6 @@ function getMonthDays(year: number, month: number): Date[] {
   return days;
 }
 
-function formatDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
 interface DayStatus {
   total: number;
   taken: number;
@@ -62,8 +59,8 @@ export function HistoryPage() {
       const { year, month } = currentMonth;
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-      const from = formatDateString(firstDay);
-      const to = formatDateString(lastDay);
+      const from = formatJstDate(firstDay);
+      const to = formatJstDate(lastDay);
 
       const [medsResult, recordsResult] = await Promise.all([
         getMedications(true),
@@ -104,7 +101,7 @@ export function HistoryPage() {
   }
 
   function getDayStatus(date: Date): DayStatus | null {
-    const dateStr = formatDateString(date);
+    const dateStr = formatJstDate(date);
     const record = records.find(r => r.date === dateStr);
 
     // その日に服用すべき薬の数を計算
@@ -145,7 +142,7 @@ export function HistoryPage() {
 
   const days = getMonthDays(currentMonth.year, currentMonth.month);
   const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
-  const today = formatDateString(new Date());
+  const today = formatJstDate(new Date());
 
   const selectedRecord = selectedDate
     ? records.find(r => r.date === selectedDate)
@@ -216,7 +213,7 @@ export function HistoryPage() {
             gap: '2px'
           }}>
             {days.map((date, i) => {
-              const dateStr = formatDateString(date);
+              const dateStr = formatJstDate(date);
               const isCurrentMonth = date.getMonth() === currentMonth.month;
               const isToday = dateStr === today;
               const status = getDayStatus(date);
@@ -319,7 +316,7 @@ interface DayDetailProps {
 }
 
 function DayDetail({ date, record, medications }: DayDetailProps) {
-  const dateObj = new Date(date + 'T00:00:00');
+  const dateObj = parseJstDate(date);
 
   return (
     <div class="card">
@@ -329,6 +326,7 @@ function DayDetail({ date, record, medications }: DayDetailProps) {
         marginBottom: 'var(--spacing-md)'
       }}>
         {dateObj.toLocaleDateString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
           year: 'numeric',
           month: 'long',
           day: 'numeric',

@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'preact/hooks';
 import { getMedications, getDailyRecord, recordMedication } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { getTodayJstString } from '../utils/date';
 import type { Medication, DailyRecord, RecordEntry, TimingType, RecordStatus } from '../types';
 import { TIMING_LABELS, TIMING_ORDER } from '../types';
-
-function getTodayString(): string {
-  const now = new Date();
-  return now.toISOString().split('T')[0];
-}
 
 function getCurrentTiming(settings?: { timings: Record<TimingType, string> }): TimingType | null {
   if (!settings) return 'morning';
@@ -48,7 +44,7 @@ export function HomePage() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [activeTiming, setActiveTiming] = useState<TimingType>('morning');
 
-  const today = getTodayString();
+  const today = getTodayJstString();
 
   useEffect(() => {
     loadData();
@@ -139,6 +135,7 @@ export function HomePage() {
           marginBottom: 'var(--spacing-sm)'
         }}>
           {new Date().toLocaleDateString('ja-JP', {
+            timeZone: 'Asia/Tokyo',
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -321,6 +318,7 @@ function MedicationCard({ medication, isUpdating, onRecord }: MedicationCardProp
             {medication.entry && (
               <span style={{ marginLeft: 'var(--spacing-sm)', fontWeight: 400 }}>
                 ({new Date(medication.entry.recordedAt).toLocaleTimeString('ja-JP', {
+                  timeZone: 'Asia/Tokyo',
                   hour: '2-digit',
                   minute: '2-digit'
                 })})
