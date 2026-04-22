@@ -116,18 +116,18 @@ export async function getRecordsInRange(
   fromDate: string,
   toDate: string
 ): Promise<DailyRecord[]> {
-  const records: DailyRecord[] = [];
+  const dates: string[] = [];
   let cursor = fromDate;
-
   while (cursor <= toDate) {
-    const record = await getDailyRecord(kv, uid, cursor);
-    if (record) {
-      records.push(record);
-    }
+    dates.push(cursor);
     cursor = addDays(cursor, 1);
   }
 
-  return records;
+  const results = await Promise.all(
+    dates.map(date => getDailyRecord(kv, uid, date))
+  );
+
+  return results.filter((r): r is DailyRecord => r !== null);
 }
 
 // WebPush購読関連
