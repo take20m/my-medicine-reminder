@@ -35,6 +35,6 @@ coverage/
 # LT 用ローカル資料（リポジトリには含めない）
 /docs/slides.md
 /docs/slides.pdf
-/docs/images/profile.png
-/docs/images/qr-demo.png
-/docs/images/qr-github.png
+/images/profile.png
+/images/qr-demo.png
+/images/qr-github.png

@@ -25,19 +25,19 @@
 <table align="center">
   <tr>
     <td align="center" valign="top">
-      <img src="docs/images/screenshot-notification.png" width="180" alt="Push通知">
+      <img src="images/screenshot-notification.png" width="180" alt="Push通知">
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/screenshot-today.png" width="180" alt="今日の服用画面">
+      <img src="images/screenshot-today.png" width="180" alt="今日の服用画面">
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/screenshot-medications.png" width="180" alt="お薬管理画面">
+      <img src="images/screenshot-medications.png" width="180" alt="お薬管理画面">
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/screenshot-history.png" width="180" alt="履歴カレンダー">
+      <img src="images/screenshot-history.png" width="180" alt="履歴カレンダー">
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/screenshot-settings.png" width="180" alt="設定画面">
+      <img src="images/screenshot-settings.png" width="180" alt="設定画面">
     </td>
   </tr>
 </table>
@@ -206,9 +206,7 @@ my-medicine-reminder/
 │       ├── utils/                  # auth / kv / date / webpush
 │       ├── index.ts                # エントリポイント
 │       └── types.ts
-├── docs/
-│   ├── images/                     # README 用スクリーンショット
-│   └── implementation_plan.md      # 設計メモ
+├── images/                         # README 用スクリーンショット
 ├── LICENSE
 └── README.md
 ```
