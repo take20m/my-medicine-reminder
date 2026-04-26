@@ -1,6 +1,7 @@
 import Router, { Route } from 'preact-router';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { Header } from './components/Header';
+import { InstallBanner } from './components/InstallBanner';
 import { Navigation } from './components/Navigation';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
@@ -21,12 +22,18 @@ function AppContent() {
   }
 
   if (!user) {
-    return <LoginPage />;
+    return (
+      <>
+        <InstallBanner />
+        <LoginPage />
+      </>
+    );
   }
 
   return (
     <div class="flex flex-col" style={{ minHeight: '100vh' }}>
       <Header />
+      <InstallBanner />
       <main style={{ flex: 1, paddingBottom: '70px' }}>
         <Router>
           <Route path="/" component={HomePage} />
