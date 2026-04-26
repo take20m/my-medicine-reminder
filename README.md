@@ -22,13 +22,25 @@
 
 ## スクリーンショット
 
-<p align="center">
-  <img src="docs/images/screenshot-notification.png" width="180" alt="Push通知">
-  <img src="docs/images/screenshot-today.png" width="180" alt="今日の服用画面">
-  <img src="docs/images/screenshot-medications.png" width="180" alt="お薬管理画面">
-  <img src="docs/images/screenshot-history.png" width="180" alt="履歴カレンダー">
-  <img src="docs/images/screenshot-settings.png" width="180" alt="設定画面">
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="top">
+      <img src="docs/images/screenshot-notification.png" width="180" alt="Push通知">
+    </td>
+    <td align="center" valign="top">
+      <img src="docs/images/screenshot-today.png" width="180" alt="今日の服用画面">
+    </td>
+    <td align="center" valign="top">
+      <img src="docs/images/screenshot-medications.png" width="180" alt="お薬管理画面">
+    </td>
+    <td align="center" valign="top">
+      <img src="docs/images/screenshot-history.png" width="180" alt="履歴カレンダー">
+    </td>
+    <td align="center" valign="top">
+      <img src="docs/images/screenshot-settings.png" width="180" alt="設定画面">
+    </td>
+  </tr>
+</table>
 
 ## 目次
 
@@ -66,43 +78,6 @@
 | プッシュ通知   | Web Push (VAPID) ※自前実装                     |
 | スケジューラー | Cloudflare Cron Triggers（5 分間隔）           |
 | ホスティング   | Cloudflare Pages                               |
-
-## アーキテクチャ
-
-```mermaid
-flowchart LR
-    subgraph Client["📱 Client (PWA)"]
-        UI["Preact + Vite"]
-        SW["Service Worker<br/>Push受信 / 通知表示"]
-    end
-
-    subgraph Pages["☁️ Cloudflare Pages"]
-        Static["Static Assets"]
-    end
-
-    subgraph Workers["⚙️ Cloudflare Workers (Hono)"]
-        API["REST API"]
-        Cron["Cron Trigger<br/>*/5 min"]
-        Pusher["WebPush Sender"]
-    end
-
-    subgraph KV["🗄 Cloudflare KV"]
-        U["users:*"]
-        M["medications:*"]
-        R["records:*"]
-        S["subscriptions:*"]
-    end
-
-    Firebase["🔐 Firebase Auth"]
-
-    UI -- "HTTPS + Bearer JWT" --> API
-    UI -- "Google Sign-In" --> Firebase
-    Static -. "初回ロード" .-> UI
-    API <--> KV
-    Cron --> Pusher
-    Pusher -- "WebPush (VAPID)" --> SW
-    SW -- "通知クリック" --> UI
-```
 
 ## セットアップ
 
