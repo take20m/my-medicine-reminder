@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { verifyFirebaseToken } from '../utils/auth';
-import { getUser, createUser, applyScheduleIndex } from '../utils/kv';
+import { getUser, createUser, applyScheduleIndex, ensureScheduleIndex } from '../utils/kv';
 
 export const authRoutes = new Hono<{ Bindings: Env }>();
 
@@ -28,6 +28,11 @@ authRoutes.post('/verify', async (c) => {
       // スケジュールインデックスに新規ユーザーの時刻を登録
       const times = Object.values(user.settings.timings);
       await applyScheduleIndex(c.env.KV, uid, [], times);
+    } else {
+      // ログイン毎に schedule:uids:* の登録漏れを自己修復する
+      // (機能導入前に作られた uid や運用中の不整合への保険。冪等)
+      const times = Object.values(user.settings.timings);
+      await ensureScheduleIndex(c.env.KV, uid, times);
     }
 
     return c.json({

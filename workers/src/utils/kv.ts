@@ -262,6 +262,38 @@ export async function applyScheduleIndex(
   }
 }
 
+/**
+ * 指定 uid を、与えられた時刻すべての schedule:uids:* に確実に登録する。
+ * 既に登録されていれば書き込みをスキップする冪等な ensure 操作。
+ * applyScheduleIndex と異なり「除去」は行わない。
+ * schedule:uids:* 機能導入前に作られた uid や、運用中に発生した不整合を
+ * ログイン時などに自己修復するために使う。
+ */
+export async function ensureScheduleIndex(
+  kv: KVNamespace,
+  uid: string,
+  times: string[]
+): Promise<void> {
+  const timings = new Set(await getScheduleTimings(kv) ?? []);
+  let timingsChanged = false;
+
+  for (const time of times) {
+    const uids = await getScheduleUids(kv, time);
+    if (!uids.includes(uid)) {
+      uids.push(uid);
+      await saveScheduleUids(kv, time, uids);
+    }
+    if (!timings.has(time)) {
+      timings.add(time);
+      timingsChanged = true;
+    }
+  }
+
+  if (timingsChanged) {
+    await saveScheduleTimings(kv, [...timings].sort());
+  }
+}
+
 // 全ユーザー情報を取得（通知処理用）
 export async function getAllUsers(kv: KVNamespace): Promise<User[]> {
   const list = await kv.list({ prefix: 'users:' });
