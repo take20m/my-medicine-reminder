@@ -111,6 +111,21 @@ export function LoginPage() {
             <li>✓ 服用履歴をカレンダーで確認</li>
           </ul>
         </div>
+
+        <p style={{
+          marginTop: 'var(--spacing-lg)',
+          fontSize: 'var(--font-size-sm)',
+          color: 'var(--color-gray-600)'
+        }}>
+          ログインすると、本サービスの
+          <a
+            href="/privacy"
+            style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}
+          >
+            プライバシーポリシー
+          </a>
+          に同意したものとみなされます。
+        </p>
       </div>
     </div>
   );

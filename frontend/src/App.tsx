@@ -9,6 +9,7 @@ import { MedicationsPage } from './pages/MedicationsPage';
 import { MedicationFormPage } from './pages/MedicationFormPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -25,7 +26,10 @@ function AppContent() {
     return (
       <>
         <InstallBanner />
-        <LoginPage />
+        <Router>
+          <Route path="/privacy" component={PrivacyPage} />
+          <Route default component={LoginPage} />
+        </Router>
       </>
     );
   }
@@ -42,6 +46,7 @@ function AppContent() {
           <Route path="/medications/:id" component={MedicationFormPage} />
           <Route path="/history" component={HistoryPage} />
           <Route path="/settings" component={SettingsPage} />
+          <Route path="/privacy" component={PrivacyPage} />
         </Router>
       </main>
       <Navigation />

@@ -351,6 +351,19 @@ export function SettingsPage() {
           ログアウト
         </button>
       </div>
+
+      <div style={{
+        textAlign: 'center',
+        padding: 'var(--spacing-md)',
+        fontSize: 'var(--font-size-sm)'
+      }}>
+        <a
+          href="/privacy"
+          style={{ color: 'var(--color-gray-600)', textDecoration: 'underline' }}
+        >
+          プライバシーポリシー
+        </a>
+      </div>
     </div>
   );
 }
