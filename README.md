@@ -11,7 +11,6 @@
 
 <p align="center">
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/take20m/my-medicine-reminder"></a>
-  <a href="https://github.com/take20m/my-medicine-reminder/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/take20m/my-medicine-reminder?display_name=tag&sort=semver"></a>
   <img alt="PWA" src="https://img.shields.io/badge/PWA-enabled-5A0FC8?logo=pwa&logoColor=white">
   <img alt="Preact" src="https://img.shields.io/badge/Preact-10-673AB8?logo=preact&logoColor=white">
   <a href="https://my-medicine-reminder.pages.dev"><img alt="Live Demo" src="https://img.shields.io/badge/Live%20Demo-Cloudflare%20Pages-F38020?logo=cloudflare&logoColor=white"></a>
@@ -210,11 +209,6 @@ my-medicine-reminder/
 ├── LICENSE
 └── README.md
 ```
-
-## バージョニング
-
-Semver で運用しています。各リリースは
-[GitHub Releases](https://github.com/take20m/my-medicine-reminder/releases) に。
 
 ## ライセンス
 
