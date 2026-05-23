@@ -103,7 +103,9 @@ export function LoginPage() {
             listStyle: 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: 'var(--spacing-xs)'
+            gap: 'var(--spacing-xs)',
+            width: 'fit-content',
+            margin: '0 auto'
           }}>
             <li>✓ 複数の薬を登録・管理</li>
             <li>✓ 服用時刻に通知でリマインド</li>
