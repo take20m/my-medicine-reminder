@@ -140,16 +140,18 @@ cd frontend && npm run dev
 ```bash
 # 1. ローカルで開発・確認 (上記「起動」)
 
-# 2. dev 環境へデプロイして実機確認
-git push origin dev          # → https://dev.my-medicine-reminder.pages.dev に自動配信
-cd workers && npm run deploy:dev   # → medicine-reminder-api-dev Worker
+# 2. dev ブランチに push → CI が dev 環境へ全自動反映
+#    (D1マイグレーション → dev Worker デプロイ → Pages プレビュー配信)
+git push origin dev
 
-# 3. 問題なければ main にマージして本番へ
+# 3. https://dev.my-medicine-reminder.pages.dev を実機で確認
+
+# 4. 問題なければ main にマージして push → 本番へ全自動反映
 git checkout main && git merge dev && git push
-cd workers && npm run deploy
 ```
 
-- dev 環境の DB スキーマ更新: `npm run db:migrate:dev`（本番は `db:migrate:remote`）
+- Worker のデプロイと D1 マイグレーションは GitHub Actions（`.github/workflows/ci.yml`）が push 時に自動実行（型チェック・テスト通過が条件）。手動でやる場合は `npm run deploy:dev` / `deploy` / `db:migrate:dev` / `db:migrate:remote`
+- 自動デプロイには GitHub リポジトリの Secrets に `CLOUDFLARE_API_TOKEN`（Workers Scripts:Edit + D1:Edit 権限）と `CLOUDFLARE_ACCOUNT_ID` の登録が必要
 - dev Worker にも cron（5分毎）が動くが、通知は dev D1 に登録した購読にしか飛ばない
 
 ## デプロイ
