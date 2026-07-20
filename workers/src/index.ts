@@ -6,7 +6,6 @@ import { medicationRoutes } from './routes/medications';
 import { recordRoutes } from './routes/records';
 import { settingsRoutes } from './routes/settings';
 import { pushRoutes } from './routes/push';
-import { adminRoutes } from './routes/admin';
 import { handleScheduled } from './services/scheduler';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -28,7 +27,6 @@ app.route('/api/medications', medicationRoutes);
 app.route('/api/records', recordRoutes);
 app.route('/api/settings', settingsRoutes);
 app.route('/api/push', pushRoutes);
-app.route('/api/admin', adminRoutes);
 
 // 404
 app.notFound((c) => c.json({ success: false, error: 'Not Found' }, 404));

@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { verifyFirebaseToken } from '../utils/auth';
-import { getUser, createUser, applyScheduleIndex, ensureScheduleIndex } from '../utils/kv';
+import { createDb } from '../db/client';
+import { getUser, createUser } from '../db/queries';
 
 export const authRoutes = new Hono<{ Bindings: Env }>();
 
@@ -16,23 +17,14 @@ authRoutes.post('/verify', async (c) => {
 
     const payload = await verifyFirebaseToken(token, c.env.FIREBASE_PROJECT_ID);
     const uid = payload.sub;
+    const displayName = payload.firebase?.identities?.['google.com']?.[0] || payload.email || 'User';
+    const email = payload.email || '';
 
-    // ユーザーが存在するか確認
-    let user = await getUser(c.env.KV, uid);
+    const db = createDb(c.env);
+    let user = await getUser(db, uid);
 
-    // 存在しない場合は新規作成
     if (!user) {
-      const displayName = payload.firebase?.identities?.['google.com']?.[0] || payload.email || 'User';
-      user = await createUser(c.env.KV, uid, displayName, payload.email || '');
-
-      // スケジュールインデックスに新規ユーザーの時刻を登録
-      const times = Object.values(user.settings.timings);
-      await applyScheduleIndex(c.env.KV, uid, [], times);
-    } else {
-      // ログイン毎に schedule:uids:* の登録漏れを自己修復する
-      // (機能導入前に作られた uid や運用中の不整合への保険。冪等)
-      const times = Object.values(user.settings.timings);
-      await ensureScheduleIndex(c.env.KV, uid, times);
+      user = await createUser(db, uid, displayName, email);
     }
 
     return c.json({

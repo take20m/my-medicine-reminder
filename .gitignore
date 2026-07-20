@@ -41,3 +41,7 @@ coverage/
 
 # ローカルメモ・レビュー類
 /notes/
+
+# KV→D1 移行の中間ファイル (個人情報を含むためコミット禁止)
+/workers/scripts/kv-dump.json
+/workers/scripts/import.sql

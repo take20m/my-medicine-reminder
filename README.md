@@ -72,7 +72,7 @@
 | フロント       | Preact + Vite + TypeScript                     |
 | PWA / 通知表示 | Service Worker + Workbox                       |
 | API            | Cloudflare Workers + [Hono](https://hono.dev/) |
-| データストア   | Cloudflare KV                                  |
+| データストア   | Cloudflare D1 + [Drizzle ORM](https://orm.drizzle.team/) |
 | 認証           | Firebase Authentication (Google)               |
 | プッシュ通知   | Web Push (VAPID) ※自前実装                     |
 | スケジューラー | Cloudflare Cron Triggers（5 分間隔）           |
@@ -94,8 +94,9 @@
 
 ### 2. Cloudflare
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com/) で KV Namespace を作成
-2. `workers/wrangler.toml` の KV ID を差し替える
+1. D1 データベースを作成する: `cd workers && npx wrangler d1 create medicine-reminder-db`
+2. `workers/wrangler.toml` の `database_id` を出力された値に差し替える
+3. スキーマを適用する: `npm run db:migrate:remote`（ローカル開発用は `npm run db:migrate:local`）
 
 ### 3. VAPID 鍵を作る
 
@@ -202,7 +203,8 @@ my-medicine-reminder/
 │   └── src/
 │       ├── routes/                 # /api/* のルート
 │       ├── services/               # scheduler などのビジネスロジック
-│       ├── utils/                  # auth / kv / date / webpush
+│       ├── db/                     # Drizzle スキーマ / クエリ (D1)
+│       ├── utils/                  # auth / date / webpush
 │       ├── index.ts                # エントリポイント
 │       └── types.ts
 ├── images/                         # README 用スクリーンショット

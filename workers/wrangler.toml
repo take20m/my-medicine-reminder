@@ -5,10 +5,11 @@ compatibility_date = "2024-02-20"
 [vars]
 ENVIRONMENT = "production"
 
-[[kv_namespaces]]
-binding = "KV"
-id = "943a26afb8fd4103992f92c2920f21dc"
-preview_id = "25fe0387c51a4c04a2abc74e1d3e241c"
+[[d1_databases]]
+binding = "DB"
+database_name = "medicine-reminder-db"
+database_id = "2b891fb6-b037-48bc-ac70-c46a1ef3bcb0"
+migrations_dir = "drizzle"
 
 [triggers]
 crons = ["*/5 * * * *"]

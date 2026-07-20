@@ -1,35 +1,41 @@
 import type { Env, TimingType, User, Medication } from '../types';
+import { createDb, type Database } from '../db/client';
 import {
-  getUser,
   getPushSubscription,
   getMedications,
   getDailyRecord,
-  getScheduleTimings,
-  getScheduleUids,
+  getUsersByTimings,
   hasNotificationBeenSent,
-  markNotificationSent
-} from '../utils/kv';
+  markNotificationSent,
+  purgeOldNotificationLogs
+} from '../db/queries';
 import { sendPushNotification } from '../utils/webpush';
 import { getJstDateTimeParts } from '../utils/date';
 import { TIMING_LABELS } from '../types';
 
-// 時刻文字列を分に変換
+// 時刻文字列 (HH:MM) を分に変換
 function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
 }
 
+// 分を HH:MM 形式に
+function minutesToTime(total: number): string {
+  const m = ((total % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  return `${String(h).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
 // 指定タイミングで未服用の薬があるかチェック
 async function hasUnrecordedMedications(
-  kv: KVNamespace,
+  db: Database,
   uid: string,
   timing: TimingType,
   date: string
 ): Promise<Medication[]> {
-  const medications = await getMedications(kv, uid);
-  const record = await getDailyRecord(kv, uid, date);
+  const medications = await getMedications(db, uid);
+  const record = await getDailyRecord(db, uid, date);
 
-  // このタイミングで服用する薬をフィルタ
   const medicationsForTiming = medications.filter(
     med => med.active && med.timings.includes(timing)
   );
@@ -38,7 +44,6 @@ async function hasUnrecordedMedications(
     return medicationsForTiming;
   }
 
-  // まだ記録されていない薬を返す
   return medicationsForTiming.filter(med => {
     const entry = record.entries.find(
       e => e.medicationId === med.id && e.timing === timing
@@ -47,14 +52,14 @@ async function hasUnrecordedMedications(
   });
 }
 
-// 特定ユーザーに通知を送信
 async function sendReminderToUser(
   env: Env,
+  db: Database,
   user: User,
   timing: TimingType,
   medications: Medication[]
 ): Promise<void> {
-  const subscription = await getPushSubscription(env.KV, user.uid);
+  const subscription = await getPushSubscription(db, user.uid);
 
   if (!subscription) {
     console.log(`No subscription for user ${user.uid}`);
@@ -65,21 +70,17 @@ async function sendReminderToUser(
   const timingLabel = TIMING_LABELS[timing];
 
   try {
-    await sendPushNotification(
-      env,
-      subscription,
-      {
-        title: `${timingLabel}のお薬の時間です`,
-        body: `${medicationNames}を服用してください`,
-        tag: `reminder-${timing}`,
-        data: {
-          type: 'reminder',
-          timing,
-          medicationIds: medications.map(m => m.id),
-          timestamp: new Date().toISOString()
-        }
+    await sendPushNotification(env, subscription, {
+      title: `${timingLabel}のお薬の時間です`,
+      body: `${medicationNames}を服用してください`,
+      tag: `reminder-${timing}`,
+      data: {
+        type: 'reminder',
+        timing,
+        medicationIds: medications.map(m => m.id),
+        timestamp: new Date().toISOString()
       }
-    );
+    });
     console.log(`Sent reminder to ${user.uid} for ${timing}`);
   } catch (error) {
     console.error(`Failed to send reminder to ${user.uid}:`, error);
@@ -89,52 +90,39 @@ async function sendReminderToUser(
 // cron間隔（分）。wrangler.toml の crons = ["*/5 * * * *"] と一致させる
 const CRON_INTERVAL = 5;
 
-// 指定時刻が現在の cron ウィンドウ内にあるかチェック
-// 例: currentMinutes=425, CRON_INTERVAL=5 → 421〜425 の範囲にあればtrue
 function isInCurrentWindow(targetMinutes: number, currentMinutes: number): boolean {
   const windowStart = currentMinutes - CRON_INTERVAL + 1;
   return targetMinutes >= windowStart && targetMinutes <= currentMinutes;
 }
 
-// スケジュール処理のメインハンドラー
+/**
+ * 現在のウィンドウ + 過去60分以内 (再通知のため) を分単位で HH:MM 配列に展開。
+ * SQL の WHERE 句で「ユーザーの設定時刻のいずれかがこの一覧に含まれる」と絞り込むのに使う。
+ */
+function relevantTimesForWindow(currentMinutes: number): string[] {
+  const times: string[] = [];
+  for (let d = 0; d < 60 + CRON_INTERVAL; d++) {
+    times.push(minutesToTime(currentMinutes - d));
+  }
+  return times;
+}
+
 export async function handleScheduled(env: Env): Promise<void> {
+  const db = createDb(env);
   const now = new Date();
   const { dateStr: today, totalMinutes: currentMinutes } = getJstDateTimeParts(now);
 
   console.log(`Running scheduler at ${now.toISOString()} (JST ${today} ${currentMinutes} min)`);
 
-  // スケジュールキャッシュから現在のcronウィンドウに該当しうる時刻を抽出
-  const cachedTimings = await getScheduleTimings(env.KV);
-  if (!cachedTimings || cachedTimings.length === 0) {
-    console.log('No schedule timings registered, skipping');
+  const candidateTimes = relevantTimesForWindow(currentMinutes);
+  const candidateUsers = await getUsersByTimings(db, candidateTimes);
+
+  if (candidateUsers.length === 0) {
+    await purgeOldNotificationLogs(db);
     return;
   }
 
-  const relevantTimings = cachedTimings.filter(timeStr => {
-    const targetMinutes = timeToMinutes(timeStr);
-    if (isInCurrentWindow(targetMinutes, currentMinutes)) return true;
-    const diff = currentMinutes - targetMinutes;
-    return diff > 0 && diff <= 60;
-  });
-
-  if (relevantTimings.length === 0) {
-    console.log('No relevant timings in current window, skipping');
-    return;
-  }
-
-  // 該当時刻の uid を時刻別インデックスから集約 (全ユーザー走査を回避)
-  const relevantUids = new Set<string>();
-  for (const time of relevantTimings) {
-    const uids = await getScheduleUids(env.KV, time);
-    for (const uid of uids) relevantUids.add(uid);
-  }
-
-  if (relevantUids.size === 0) return;
-
-  for (const uid of relevantUids) {
-    const user = await getUser(env.KV, uid);
-    if (!user) continue;
-
+  for (const user of candidateUsers) {
     const settings = user.settings;
 
     for (const [timing, timeStr] of Object.entries(settings.timings)) {
@@ -146,9 +134,7 @@ export async function handleScheduled(env: Env): Promise<void> {
         continue;
       }
 
-      // 初回通知: 設定時刻が現在のcronウィンドウ内にあるか
       const isInitialNotification = isInCurrentWindow(targetMinutes, currentMinutes);
-      // 再通知: reminderInterval の倍数がウィンドウ内にあるか
       let isReminderNotification = false;
       if (diffMinutes > 0) {
         for (let d = diffMinutes - CRON_INTERVAL + 1; d <= diffMinutes; d++) {
@@ -164,7 +150,7 @@ export async function handleScheduled(env: Env): Promise<void> {
       }
 
       const unrecordedMeds = await hasUnrecordedMedications(
-        env.KV,
+        db,
         user.uid,
         timing as TimingType,
         today
@@ -175,10 +161,9 @@ export async function handleScheduled(env: Env): Promise<void> {
       }
 
       // 冪等性: 同一 cron ウィンドウで既に送信済みならスキップ
-      // (cron リトライ、タイミング境界の重複発火を防ぐ)
       const windowStart = currentMinutes - (currentMinutes % CRON_INTERVAL);
       const alreadySent = await hasNotificationBeenSent(
-        env.KV,
+        db,
         user.uid,
         today,
         timing,
@@ -188,8 +173,11 @@ export async function handleScheduled(env: Env): Promise<void> {
         continue;
       }
 
-      await sendReminderToUser(env, user, timing as TimingType, unrecordedMeds);
-      await markNotificationSent(env.KV, user.uid, today, timing, windowStart);
+      await sendReminderToUser(env, db, user, timing as TimingType, unrecordedMeds);
+      await markNotificationSent(db, user.uid, today, timing, windowStart);
     }
   }
+
+  // 10分以上前の冪等性ログを掃除 (KV 時代の TTL 10分の代替)
+  await purgeOldNotificationLogs(db);
 }

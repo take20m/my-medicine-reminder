@@ -1,15 +1,14 @@
 import { Hono } from 'hono';
 import type { Env, PushSubscriptionData } from '../types';
 import { authMiddleware } from '../utils/auth';
-import { getPushSubscription, savePushSubscription, deletePushSubscription, getUser } from '../utils/kv';
+import { createDb } from '../db/client';
+import { getPushSubscription, savePushSubscription, deletePushSubscription } from '../db/queries';
 import { sendPushNotification } from '../utils/webpush';
 
 export const pushRoutes = new Hono<{ Bindings: Env; Variables: { uid: string } }>();
 
-// 認証ミドルウェアを全ルートに適用
 pushRoutes.use('*', authMiddleware());
 
-// VAPID公開鍵取得
 pushRoutes.get('/vapid-key', async (c) => {
   return c.json({
     success: true,
@@ -17,8 +16,8 @@ pushRoutes.get('/vapid-key', async (c) => {
   });
 });
 
-// WebPush購読登録
 pushRoutes.post('/subscribe', async (c) => {
+  const db = createDb(c.env);
   const uid = c.get('uid');
   const body = await c.req.json<{
     endpoint: string;
@@ -28,7 +27,6 @@ pushRoutes.post('/subscribe', async (c) => {
     };
   }>();
 
-  // バリデーション
   if (!body.endpoint || !body.keys?.p256dh || !body.keys?.auth) {
     return c.json({ success: false, error: 'Invalid subscription data' }, 400);
   }
@@ -39,30 +37,28 @@ pushRoutes.post('/subscribe', async (c) => {
     createdAt: new Date().toISOString()
   };
 
-  await savePushSubscription(c.env.KV, uid, subscription);
+  await savePushSubscription(db, uid, subscription);
 
   return c.json({ success: true });
 });
 
-// WebPush購読解除
 pushRoutes.delete('/subscribe', async (c) => {
+  const db = createDb(c.env);
   const uid = c.get('uid');
 
-  await deletePushSubscription(c.env.KV, uid);
+  await deletePushSubscription(db, uid);
 
   return c.json({ success: true });
 });
 
-// テスト通知送信
 pushRoutes.post('/test', async (c) => {
+  const db = createDb(c.env);
   const uid = c.get('uid');
 
-  const subscription = await getPushSubscription(c.env.KV, uid);
+  const subscription = await getPushSubscription(db, uid);
   if (!subscription) {
     return c.json({ success: false, error: 'No subscription found' }, 404);
   }
-
-  const user = await getUser(c.env.KV, uid);
 
   try {
     const result = await sendPushNotification(

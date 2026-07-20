@@ -1,17 +1,17 @@
 import { Hono } from 'hono';
 import type { Env, UserSettings } from '../types';
 import { authMiddleware } from '../utils/auth';
-import { getUser, updateUserSettings, applyScheduleIndex } from '../utils/kv';
+import { createDb } from '../db/client';
+import { getUser, updateUserSettings } from '../db/queries';
 
 export const settingsRoutes = new Hono<{ Bindings: Env; Variables: { uid: string } }>();
 
-// 認証ミドルウェアを全ルートに適用
 settingsRoutes.use('*', authMiddleware());
 
-// ユーザー設定取得
 settingsRoutes.get('/', async (c) => {
+  const db = createDb(c.env);
   const uid = c.get('uid');
-  const user = await getUser(c.env.KV, uid);
+  const user = await getUser(db, uid);
 
   if (!user) {
     return c.json({ success: false, error: 'User not found' }, 404);
@@ -20,12 +20,11 @@ settingsRoutes.get('/', async (c) => {
   return c.json({ success: true, data: user.settings });
 });
 
-// ユーザー設定更新
 settingsRoutes.put('/', async (c) => {
+  const db = createDb(c.env);
   const uid = c.get('uid');
   const body = await c.req.json<Partial<UserSettings>>();
 
-  // バリデーション
   if (body.timings) {
     const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
     for (const [timing, time] of Object.entries(body.timings)) {
@@ -41,18 +40,11 @@ settingsRoutes.put('/', async (c) => {
     }
   }
 
-  const existing = await getUser(c.env.KV, uid);
-  const oldTimes = existing ? Object.values(existing.settings.timings) : [];
-
-  const user = await updateUserSettings(c.env.KV, uid, body);
+  const user = await updateUserSettings(db, uid, body);
 
   if (!user) {
     return c.json({ success: false, error: 'User not found' }, 404);
   }
-
-  // スケジュールインデックスを差分更新 (全ユーザー走査を回避)
-  const newTimes = Object.values(user.settings.timings);
-  await applyScheduleIndex(c.env.KV, uid, oldTimes, newTimes);
 
   return c.json({ success: true, data: user.settings });
 });
