@@ -8,7 +8,22 @@ import type {
   RecordStatus
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+// VITE_API_BASE があれば最優先。無ければホスト名から実行時に判定する:
+// 本番 Pages → 本番 Worker、それ以外の *.pages.dev (devブランチ/プレビュー) → dev Worker、
+// localhost → vite の proxy (/api)
+function resolveApiBase(): string {
+  if (import.meta.env.VITE_API_BASE) return import.meta.env.VITE_API_BASE;
+  const host = location.hostname;
+  if (host === 'my-medicine-reminder.pages.dev') {
+    return 'https://medicine-reminder-api.my-medicine-reminder-api.workers.dev/api';
+  }
+  if (host.endsWith('.pages.dev')) {
+    return 'https://medicine-reminder-api-dev.my-medicine-reminder-api.workers.dev/api';
+  }
+  return '/api';
+}
+
+const API_BASE = resolveApiBase();
 
 async function fetchWithAuth<T>(
   endpoint: string,
