@@ -1,3 +1,6 @@
+# ローカル開発フラグ (CORSでlocalhostを許可するため)
+ENVIRONMENT=development
+
 # Firebase Project ID (for token verification)
 FIREBASE_PROJECT_ID=your-project-id
 

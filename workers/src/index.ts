@@ -14,7 +14,11 @@ const app = new Hono<{ Bindings: Env }>();
 app.use('/api/*', (c, next) => {
   const origins = c.env.ENVIRONMENT === 'production'
     ? ['https://my-medicine-reminder.pages.dev']
-    : ['http://localhost:5173', 'https://my-medicine-reminder.pages.dev'];
+    : [
+        'http://localhost:5173',
+        'https://dev.my-medicine-reminder.pages.dev',
+        'https://my-medicine-reminder.pages.dev'
+      ];
   return cors({ origin: origins, credentials: true })(c, next);
 });
 

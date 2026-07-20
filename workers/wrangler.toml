@@ -13,3 +13,19 @@ migrations_dir = "drizzle"
 
 [triggers]
 crons = ["*/5 * * * *"]
+
+# 開発環境: wrangler deploy --env dev でデプロイ (Worker名 medicine-reminder-api-dev)
+[env.dev]
+name = "medicine-reminder-api-dev"
+
+[env.dev.vars]
+ENVIRONMENT = "development"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "medicine-reminder-db-dev"
+database_id = "33a8be05-c578-4f22-b9d6-da4ddb9be100"
+migrations_dir = "drizzle"
+
+[env.dev.triggers]
+crons = ["*/5 * * * *"]

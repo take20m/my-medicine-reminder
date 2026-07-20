@@ -133,14 +133,36 @@ cd frontend && npm run dev
 
 <http://localhost:5173> を開く。
 
+## 開発フロー（dev 環境 → 本番）
+
+ローカル → dev 環境（実機確認）→ 本番の3段構成。データは「ローカル SQLite / dev D1 / 本番 D1」で完全分離。
+
+```bash
+# 1. ローカルで開発・確認 (上記「起動」)
+
+# 2. dev 環境へデプロイして実機確認
+git push origin dev          # → https://dev.my-medicine-reminder.pages.dev に自動配信
+cd workers && npm run deploy:dev   # → medicine-reminder-api-dev Worker
+
+# 3. 問題なければ main にマージして本番へ
+git checkout main && git merge dev && git push
+cd workers && npm run deploy
+```
+
+- dev 環境の DB スキーマ更新: `npm run db:migrate:dev`（本番は `db:migrate:remote`）
+- dev Worker にも cron（5分毎）が動くが、通知は dev D1 に登録した購読にしか飛ばない
+
 ## デプロイ
 
 ### Workers
 
 ```bash
 cd workers
-npm run deploy
+npm run deploy        # 本番 (medicine-reminder-api)
+npm run deploy:dev    # 開発 (medicine-reminder-api-dev)
 ```
+
+初回は secrets の登録が必要: `wrangler secret put <KEY>`（dev は `--env dev` を付ける。KEY は `.dev.vars.example` を参照）
 
 ### フロントエンド (Cloudflare Pages)
 
@@ -150,6 +172,9 @@ npm run deploy
    - ビルドコマンド: `cd frontend && npm install && npm run build`
    - 出力ディレクトリ: `frontend/dist`
 4. `VITE_FIREBASE_*` などの環境変数を Pages に登録
+   - Production 環境変数: `VITE_API_BASE` = 本番 Worker の URL + `/api`
+   - Preview 環境変数: `VITE_API_BASE` = dev Worker の URL + `/api`（`dev` ブランチのプレビューが dev 環境のフロントになる）
+5. Firebase Console → Authentication → 承認済みドメインに `dev.my-medicine-reminder.pages.dev` を追加
 
 ## iPhone で使う
 

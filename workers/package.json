@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "deploy:dev": "wrangler deploy --env dev",
     "types": "wrangler types",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply medicine-reminder-db --local",
+    "db:migrate:dev": "wrangler d1 migrations apply medicine-reminder-db-dev --env dev --remote",
     "db:migrate:remote": "wrangler d1 migrations apply medicine-reminder-db --remote"
   },
   "dependencies": {
