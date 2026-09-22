@@ -1,7 +1,7 @@
 import type { Context, Next } from 'hono';
 import type { Env } from '../types';
 
-interface FirebaseTokenPayload {
+export interface FirebaseTokenPayload {
   iss: string;
   aud: string;
   auth_time: number;
@@ -11,6 +11,7 @@ interface FirebaseTokenPayload {
   exp: number;
   email?: string;
   email_verified?: boolean;
+  name?: string;
   firebase: {
     identities: Record<string, string[]>;
     sign_in_provider: string;

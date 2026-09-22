@@ -133,6 +133,22 @@ export async function createUser(
   return user;
 }
 
+/**
+ * ログインのたびに Firebase 側のプロフィールへ追従させる。
+ * 以前は displayName に Google の sub (数字) を入れていたため、既存行の是正も兼ねる。
+ */
+export async function updateUserProfile(
+  db: Database,
+  uid: string,
+  displayName: string,
+  email: string
+): Promise<void> {
+  await db
+    .update(schema.users)
+    .set({ displayName, email })
+    .where(eq(schema.users.uid, uid));
+}
+
 export async function updateUserSettings(
   db: Database,
   uid: string,
