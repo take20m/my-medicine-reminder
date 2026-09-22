@@ -1,35 +1,11 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { getMedications, getDailyRecord, recordMedication } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { getJstMinutesOfDay, getTodayJstString } from '../utils/date';
+import { selectInitialTiming } from '../utils/timing';
 import { MedicationCard } from '../components/MedicationCard';
 import type { Medication, DailyRecord, RecordEntry, TimingType, RecordStatus } from '../types';
 import { TIMING_LABELS, TIMING_ORDER } from '../types';
-
-function getCurrentTiming(settings?: { timings: Record<TimingType, string> }): TimingType | null {
-  if (!settings) return 'morning';
-
-  const currentMinutes = getJstMinutesOfDay(new Date());
-
-  const timings = TIMING_ORDER.map(timing => ({
-    timing,
-    minutes: timeToMinutes(settings.timings[timing])
-  })).sort((a, b) => a.minutes - b.minutes);
-
-  // 現在時刻に最も近い過去のタイミングを返す
-  for (let i = timings.length - 1; i >= 0; i--) {
-    if (currentMinutes >= timings[i].minutes) {
-      return timings[i].timing;
-    }
-  }
-
-  return timings[0].timing;
-}
-
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(':').map(Number);
-  return hours * 60 + minutes;
-}
 
 interface MedicationWithStatus extends Medication {
   status: RecordStatus;
@@ -43,6 +19,8 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [activeTiming, setActiveTiming] = useState<TimingType>('morning');
+  // 自動選択は初回のみ。以降はユーザーのタブ操作を上書きしない
+  const autoSelected = useRef(false);
 
   const today = getTodayJstString();
 
@@ -50,14 +28,15 @@ export function HomePage() {
     loadData();
   }, []);
 
+  // 薬リストのロード完了後に、薬が登録されているタイミングを開く
   useEffect(() => {
-    if (user?.settings) {
-      const current = getCurrentTiming(user.settings);
-      if (current) {
-        setActiveTiming(current);
-      }
-    }
-  }, [user]);
+    if (loading || autoSelected.current || !user?.settings) return;
+
+    setActiveTiming(
+      selectInitialTiming(user.settings.timings, getJstMinutesOfDay(new Date()), medications)
+    );
+    autoSelected.current = true;
+  }, [loading, user, medications]);
 
   async function loadData() {
     setLoading(true);
