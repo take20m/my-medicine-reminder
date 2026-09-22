@@ -2,6 +2,9 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /frontend
+    # main への PR は dev ブランチからのみ許可しているため (ci.yml の guard-main-pr)、
+    # Dependabot の PR も dev 宛てにする
+    target-branch: dev
     schedule:
       interval: weekly
       day: monday
@@ -21,6 +24,7 @@ updates:
 
   - package-ecosystem: npm
     directory: /workers
+    target-branch: dev
     schedule:
       interval: weekly
       day: monday
