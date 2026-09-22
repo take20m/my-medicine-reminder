@@ -381,7 +381,7 @@ export function SettingsPage() {
           アカウント
         </h3>
         <div style={{ marginBottom: 'var(--spacing-md)' }}>
-          <p style={{ fontWeight: 500 }}>{user?.displayName}</p>
+          {/* displayName には Google の sub (数字) が入るため表示しない */}
           <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-gray-600)' }}>
             {user?.email}
           </p>
