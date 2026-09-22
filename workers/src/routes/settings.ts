@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Env, UserSettings } from '../types';
+import { MAX_MAX_REMINDER_COUNT, MIN_MAX_REMINDER_COUNT } from '../types';
 import { authMiddleware } from '../utils/auth';
 import { createDb } from '../db/client';
 import { getUser, updateUserSettings } from '../db/queries';
@@ -37,6 +38,23 @@ settingsRoutes.put('/', async (c) => {
   if (body.reminderInterval !== undefined) {
     if (typeof body.reminderInterval !== 'number' || body.reminderInterval < 5 || body.reminderInterval > 60) {
       return c.json({ success: false, error: 'Reminder interval must be between 5 and 60 minutes' }, 400);
+    }
+  }
+
+  if (body.maxReminderCount !== undefined) {
+    if (
+      typeof body.maxReminderCount !== 'number' ||
+      !Number.isInteger(body.maxReminderCount) ||
+      body.maxReminderCount < MIN_MAX_REMINDER_COUNT ||
+      body.maxReminderCount > MAX_MAX_REMINDER_COUNT
+    ) {
+      return c.json(
+        {
+          success: false,
+          error: `Max reminder count must be an integer between ${MIN_MAX_REMINDER_COUNT} and ${MAX_MAX_REMINDER_COUNT}`
+        },
+        400
+      );
     }
   }
 

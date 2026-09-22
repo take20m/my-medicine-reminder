@@ -9,6 +9,7 @@ export const users = sqliteTable('users', {
   eveningTime: text('evening_time').notNull().default('18:00'),
   bedtimeTime: text('bedtime_time').notNull().default('22:00'),
   reminderInterval: integer('reminder_interval').notNull().default(15),
+  maxReminderCount: integer('max_reminder_count').notNull().default(4),
   createdAt: text('created_at').notNull()
 });
 
