@@ -138,17 +138,21 @@ cd frontend && npm run dev
 ローカル → dev 環境（実機確認）→ 本番の3段構成。データは「ローカル SQLite / dev D1 / 本番 D1」で完全分離。
 
 ```bash
-# 1. ローカルで開発・確認 (上記「起動」)
+# 1. feature ブランチで開発 → dev にマージ (PR でも直マージでも可)
+git checkout dev && git merge feature/xxx
 
-# 2. dev ブランチに push → CI が dev 環境へ全自動反映
+# 2. dev に push → CI が dev 環境へ全自動反映
 #    (D1マイグレーション → dev Worker デプロイ → Pages プレビュー配信)
 git push origin dev
 
 # 3. https://dev.my-medicine-reminder.pages.dev を実機で確認
 
-# 4. 問題なければ main にマージして push → 本番へ全自動反映
-git checkout main && git merge dev && git push
+# 4. 問題なければ GitHub 上で dev → main の PR を作成してマージ → 本番へ全自動反映
+gh pr create --base main --head dev && gh pr merge --merge
 ```
+
+- main への直 push は不可（ブランチ保護）。**main にマージできるのは dev ブランチの PR のみ**（CI の guard-main-pr が強制）
+- dev → main の PR は「Create a merge commit」でマージする（Squash にすると dev と main の履歴が乖離する）
 
 - Worker のデプロイと D1 マイグレーションは GitHub Actions（`.github/workflows/ci.yml`）が push 時に自動実行（型チェック・テスト通過が条件）。手動でやる場合は `npm run deploy:dev` / `deploy` / `db:migrate:dev` / `db:migrate:remote`
 - 自動デプロイには GitHub リポジトリの Secrets に `CLOUDFLARE_API_TOKEN`（Workers Scripts:Edit + D1:Edit 権限）と `CLOUDFLARE_ACCOUNT_ID` の登録が必要

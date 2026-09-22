@@ -4,9 +4,24 @@ on:
   push:
     branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
+  # main への PR は dev ブランチからのみ許可 (ブランチ保護の必須チェックに指定する)
+  guard-main-pr:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    env:
+      # ブランチ名は外部入力なので run 内に直接展開しない (コマンドインジェクション対策)
+      HEAD_REF: ${{ github.head_ref }}
+    steps:
+      - run: |
+          if [ "$HEAD_REF" != "dev" ]; then
+            echo "::error::main への PR は dev ブランチからのみ許可されています (現在: $HEAD_REF)"
+            exit 1
+          fi
+          echo "OK: dev -> main"
+
   workers:
     runs-on: ubuntu-latest
     defaults:
