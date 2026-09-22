@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `max_reminder_count` integer DEFAULT 4 NOT NULL;

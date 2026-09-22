@@ -18,7 +18,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
     evening: '18:00',
     bedtime: '22:00'
   },
-  reminderInterval: 15
+  reminderInterval: 15,
+  maxReminderCount: 4
 };
 
 type UserRow = typeof schema.users.$inferSelect;
@@ -38,7 +39,8 @@ function rowToUser(row: UserRow): User {
         evening: row.eveningTime,
         bedtime: row.bedtimeTime
       },
-      reminderInterval: row.reminderInterval
+      reminderInterval: row.reminderInterval,
+      maxReminderCount: row.maxReminderCount
     },
     createdAt: row.createdAt
   };
@@ -85,6 +87,7 @@ export async function upsertUser(db: Database, user: User): Promise<void> {
       eveningTime: user.settings.timings.evening,
       bedtimeTime: user.settings.timings.bedtime,
       reminderInterval: user.settings.reminderInterval,
+      maxReminderCount: user.settings.maxReminderCount,
       createdAt: user.createdAt
     })
     .onConflictDoUpdate({
@@ -96,7 +99,8 @@ export async function upsertUser(db: Database, user: User): Promise<void> {
         noonTime: user.settings.timings.noon,
         eveningTime: user.settings.timings.evening,
         bedtimeTime: user.settings.timings.bedtime,
-        reminderInterval: user.settings.reminderInterval
+        reminderInterval: user.settings.reminderInterval,
+        maxReminderCount: user.settings.maxReminderCount
       }
     });
 }
@@ -123,6 +127,7 @@ export async function createUser(
     eveningTime: DEFAULT_SETTINGS.timings.evening,
     bedtimeTime: DEFAULT_SETTINGS.timings.bedtime,
     reminderInterval: DEFAULT_SETTINGS.reminderInterval,
+    maxReminderCount: DEFAULT_SETTINGS.maxReminderCount,
     createdAt: user.createdAt
   });
   return user;
@@ -138,7 +143,8 @@ export async function updateUserSettings(
 
   const merged: UserSettings = {
     timings: { ...current.settings.timings, ...(settings.timings ?? {}) },
-    reminderInterval: settings.reminderInterval ?? current.settings.reminderInterval
+    reminderInterval: settings.reminderInterval ?? current.settings.reminderInterval,
+    maxReminderCount: settings.maxReminderCount ?? current.settings.maxReminderCount
   };
 
   await db
@@ -148,7 +154,8 @@ export async function updateUserSettings(
       noonTime: merged.timings.noon,
       eveningTime: merged.timings.evening,
       bedtimeTime: merged.timings.bedtime,
-      reminderInterval: merged.reminderInterval
+      reminderInterval: merged.reminderInterval,
+      maxReminderCount: merged.maxReminderCount
     })
     .where(eq(schema.users.uid, uid));
 

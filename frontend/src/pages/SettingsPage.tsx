@@ -2,7 +2,14 @@ import { useState, useEffect } from 'preact/hooks';
 import { useAuth } from '../hooks/useAuth';
 import { getSettings, updateSettings, getVapidKey, subscribePush, unsubscribePush, sendTestNotification } from '../services/api';
 import type { UserSettings, TimingType } from '../types';
-import { TIMING_LABELS, TIMING_ORDER } from '../types';
+import { MAX_MAX_REMINDER_COUNT, MIN_MAX_REMINDER_COUNT, TIMING_LABELS, TIMING_ORDER } from '../types';
+
+// 0回（再通知しない）〜10回。0 のときは初回通知のみ。
+const MAX_REMINDER_COUNT_OPTIONS = Array.from(
+  { length: MAX_MAX_REMINDER_COUNT - MIN_MAX_REMINDER_COUNT + 1 },
+  (_, i) => MIN_MAX_REMINDER_COUNT + i
+);
+const DEFAULT_MAX_REMINDER_COUNT = 4;
 
 export function SettingsPage() {
   const { user, signOut, refreshUser } = useAuth();
@@ -61,6 +68,13 @@ export function SettingsPage() {
     if (!settings) return;
 
     const newSettings = { ...settings, reminderInterval: value };
+    setSettings(newSettings);
+  }
+
+  async function handleMaxReminderCountChange(value: number) {
+    if (!settings) return;
+
+    const newSettings = { ...settings, maxReminderCount: value };
     setSettings(newSettings);
   }
 
@@ -262,6 +276,35 @@ export function SettingsPage() {
         </select>
       </div>
 
+      {/* 最大再通知回数設定 */}
+      <div class="card" style={{ marginBottom: 'var(--spacing-md)' }}>
+        <h3 style={{
+          fontSize: 'var(--font-size-lg)',
+          fontWeight: 600,
+          marginBottom: 'var(--spacing-md)'
+        }}>
+          最大再通知回数
+        </h3>
+        <p style={{
+          fontSize: 'var(--font-size-sm)',
+          color: 'var(--color-gray-600)',
+          marginBottom: 'var(--spacing-sm)'
+        }}>
+          最初の通知のあと、何回まで再通知するか（日付が変わると打ち切ります）
+        </p>
+        <select
+          value={settings?.maxReminderCount ?? DEFAULT_MAX_REMINDER_COUNT}
+          onChange={(e) => handleMaxReminderCountChange(parseInt((e.target as HTMLSelectElement).value))}
+          class="form-input"
+        >
+          {MAX_REMINDER_COUNT_OPTIONS.map(count => (
+            <option key={count} value={String(count)}>
+              {count === 0 ? '再通知しない' : `${count}回`}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <button
         onClick={saveSettings}
         disabled={saving}
@@ -338,7 +381,7 @@ export function SettingsPage() {
           アカウント
         </h3>
         <div style={{ marginBottom: 'var(--spacing-md)' }}>
-          <p style={{ fontWeight: 500 }}>{user?.displayName}</p>
+          {/* displayName には Google の sub (数字) が入るため表示しない */}
           <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-gray-600)' }}>
             {user?.email}
           </p>

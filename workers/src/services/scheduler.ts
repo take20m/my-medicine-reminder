@@ -11,7 +11,7 @@ import {
 } from '../db/queries';
 import { sendPushNotification } from '../utils/webpush';
 import { getJstDateTimeParts } from '../utils/date';
-import { TIMING_LABELS } from '../types';
+import { MAX_MAX_REMINDER_COUNT, TIMING_LABELS } from '../types';
 
 // 時刻文字列 (HH:MM) を分に変換
 function timeToMinutes(time: string): number {
@@ -88,20 +88,80 @@ async function sendReminderToUser(
 }
 
 // cron間隔（分）。wrangler.toml の crons = ["*/5 * * * *"] と一致させる
-const CRON_INTERVAL = 5;
+export const CRON_INTERVAL = 5;
 
-function isInCurrentWindow(targetMinutes: number, currentMinutes: number): boolean {
+// 再通知間隔の最大値（分）。settings ルートの検証と一致させる
+const MAX_REMINDER_INTERVAL = 60;
+
+export function isInCurrentWindow(targetMinutes: number, currentMinutes: number): boolean {
   const windowStart = currentMinutes - CRON_INTERVAL + 1;
   return targetMinutes >= windowStart && targetMinutes <= currentMinutes;
 }
 
 /**
- * 現在のウィンドウ + 過去60分以内 (再通知のため) を分単位で HH:MM 配列に展開。
- * SQL の WHERE 句で「ユーザーの設定時刻のいずれかがこの一覧に含まれる」と絞り込むのに使う。
+ * 設定時刻から何分後まで通知しうるか。
+ * 再通知は「間隔 × 最大回数」で打ち切るが、初回通知だけは最大回数 0 でも飛ぶので
+ * 最低でも cron ウィンドウ 1 回分は見る。
  */
-function relevantTimesForWindow(currentMinutes: number): string[] {
+export function maxElapsedMinutes(reminderInterval: number, maxReminderCount: number): number {
+  return Math.max(reminderInterval * maxReminderCount, CRON_INTERVAL);
+}
+
+/**
+ * この cron ウィンドウが n 回目の再通知に当たるか。
+ * cron は5分毎なので、ウィンドウ内の各分が再通知間隔の倍数かを見る。
+ * 倍数であっても、それが最大回数を超えていれば送らない。
+ */
+export function isReminderWindow(
+  diffMinutes: number,
+  reminderInterval: number,
+  maxReminderCount: number
+): boolean {
+  if (diffMinutes <= 0) return false;
+  for (let d = diffMinutes - CRON_INTERVAL + 1; d <= diffMinutes; d++) {
+    if (d > 0 && d % reminderInterval === 0 && d / reminderInterval <= maxReminderCount) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * この cron ウィンドウで通知を送るべきか（初回通知 or 再通知）。
+ * 日をまたいだ場合 (diffMinutes < 0) は回数が残っていても打ち切る。
+ * 服薬記録が日付単位なので、翌日に前日分の通知を送らない。
+ */
+export function shouldSendNotification(params: {
+  currentMinutes: number;
+  targetMinutes: number;
+  reminderInterval: number;
+  maxReminderCount: number;
+}): boolean {
+  const { currentMinutes, targetMinutes, reminderInterval, maxReminderCount } = params;
+  const diffMinutes = currentMinutes - targetMinutes;
+
+  if (diffMinutes < 0) return false;
+  if (diffMinutes > maxElapsedMinutes(reminderInterval, maxReminderCount)) return false;
+
+  return (
+    isInCurrentWindow(targetMinutes, currentMinutes) ||
+    isReminderWindow(diffMinutes, reminderInterval, maxReminderCount)
+  );
+}
+
+/**
+ * 現在のウィンドウ + 再通知が飛びうる過去の範囲を分単位で HH:MM 配列に展開。
+ * SQL の WHERE 句で「ユーザーの設定時刻のいずれかがこの一覧に含まれる」と絞り込むのに使う。
+ * 最大値はユーザーが設定しうる上限 (60分 × 10回) + cron ウィンドウ 1 回分。
+ * 日をまたいだら打ち切るので、当日 00:00 より前は展開しない。
+ */
+export function relevantTimesForWindow(currentMinutes: number): string[] {
+  const maxLookback = Math.min(
+    MAX_REMINDER_INTERVAL * MAX_MAX_REMINDER_COUNT + CRON_INTERVAL,
+    currentMinutes + 1
+  );
   const times: string[] = [];
-  for (let d = 0; d < 60 + CRON_INTERVAL; d++) {
+  for (let d = 0; d < maxLookback; d++) {
     times.push(minutesToTime(currentMinutes - d));
   }
   return times;
@@ -127,25 +187,15 @@ export async function handleScheduled(env: Env): Promise<void> {
 
     for (const [timing, timeStr] of Object.entries(settings.timings)) {
       const targetMinutes = timeToMinutes(timeStr);
-      const reminderInterval = settings.reminderInterval;
-      const diffMinutes = currentMinutes - targetMinutes;
 
-      if (diffMinutes < 0 || diffMinutes > 60) {
-        continue;
-      }
+      const shouldSend = shouldSendNotification({
+        currentMinutes,
+        targetMinutes,
+        reminderInterval: settings.reminderInterval,
+        maxReminderCount: settings.maxReminderCount
+      });
 
-      const isInitialNotification = isInCurrentWindow(targetMinutes, currentMinutes);
-      let isReminderNotification = false;
-      if (diffMinutes > 0) {
-        for (let d = diffMinutes - CRON_INTERVAL + 1; d <= diffMinutes; d++) {
-          if (d > 0 && d % reminderInterval === 0) {
-            isReminderNotification = true;
-            break;
-          }
-        }
-      }
-
-      if (!isInitialNotification && !isReminderNotification) {
+      if (!shouldSend) {
         continue;
       }
 

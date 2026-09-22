@@ -15,7 +15,11 @@ export const TIMING_ORDER: TimingType[] = ['morning', 'noon', 'evening', 'bedtim
 export interface UserSettings {
   timings: Record<TimingType, string>; // 各タイミングの時刻 (HH:mm)
   reminderInterval: number; // 再通知間隔（分）
+  maxReminderCount: number; // 最大再通知回数（初回通知は含まない）
 }
+
+export const MIN_MAX_REMINDER_COUNT = 0;
+export const MAX_MAX_REMINDER_COUNT = 10;
 
 export interface User {
   uid: string;
